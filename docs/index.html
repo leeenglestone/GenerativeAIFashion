@@ -15,87 +15,140 @@
   <title>GenerativeAI.fashion</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
+    :root {
+      --brand-grad: linear-gradient(135deg, #6366f1 0%, #22d3ee 50%, #a78bfa 100%);
+    }
     body { padding-top: 2rem; }
+    .brand-title {
+      background: var(--brand-grad);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .subcard {
+      border: 0;
+      background: #f8fafc;
+      box-shadow: 0 8px 24px rgba(2,6,23,.05);
+      border-radius: 1rem;
+    }
+
     .card-panel {
       min-height: 300px; display: flex; align-items: center; justify-content: center;
-      border: 2px dashed #dee2e6; border-radius: 1rem; cursor: pointer; background-color: #f8f9fa;
-      transition: background-color 0.2s;
+      border: 2px dashed #cbd5e1; border-radius: 1rem; cursor: pointer; background-color: #f8fafc;
+      transition: transform .15s ease, background-color .2s ease, border-color .2s ease;
     }
-    .card-panel.dragover { background-color: #e9ecef; }
-    .preview-img { max-width: 100%; max-height: 280px; border-radius: .5rem; }
+    .card-panel:hover { transform: translateY(-2px); border-color: #94a3b8; background-color: #f1f5f9; }
+    .card-panel.dragover { background-color: #e2e8f0; }
+
+    .section-label {
+      font-weight: 700; letter-spacing: .3px;
+      color: #475569; margin-bottom: .25rem;
+    }
+    .badge-soft {
+      background: #eef2ff; color: #4f46e5; border: 1px solid #e0e7ff;
+    }
+
+    .preview-img { max-width: 100%; max-height: 280px; border-radius: .75rem; box-shadow: 0 6px 20px rgba(2,6,23,.08); }
     .preview-wrap { position: relative; display: inline-block; }
-    .thumb { max-height: 240px; width: auto; border-radius: .5rem; object-fit: contain; }
-    @media (max-width: 576px) {
-      .thumb { max-height: 180px; }
+
+    .thumb {
+      max-height: 260px; width: auto; border-radius: .75rem;
+      box-shadow: 0 6px 20px rgba(2,6,23,.08); object-fit: contain;
     }
-    .clear-btn { position: absolute; top: .5rem; right: .5rem; z-index: 2; }
+    @media (max-width: 576px) { .thumb { max-height: 190px; } }
+
+    .clear-btn {
+      position: absolute; top: .5rem; right: .5rem; z-index: 2;
+      backdrop-filter: blur(6px);
+    }
+
     .operator {
-      font-size: 3rem; font-weight: bold; color: #6c757d;
+      font-size: 3rem; font-weight: 800; color: #64748b;
       display: flex; align-items: center; justify-content: center;
+      text-shadow: 0 6px 18px rgba(99,102,241,.25);
+      animation: pop 1.6s ease-in-out infinite;
     }
-    #historyGrid .operator { font-size: 2.25rem; }
-    .muted-small { font-size: .85rem; color: #6c757d; }
+    #historyGrid .operator { font-size: 2.5rem; }
+
+    @keyframes pop {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+
+    .cta {
+      background: var(--brand-grad); border: 0; box-shadow: 0 10px 24px rgba(34,211,238,.25);
+    }
+    .cta:hover { filter: brightness(.98); transform: translateY(-1px); }
+    .cta:active { transform: translateY(0); }
+
+    .muted-small { font-size: .9rem; color: #64748b; }
+
+    /* Extra breathing room for the tagline on large screens (in addition to mb-5) */
+    @media (min-width: 992px) { .lead.mb-5 { margin-bottom: 3rem !important; } }
   </style>
 </head>
 <body>
   <div class="container text-center">
-    <h1 class="display-5 fw-bold mb-3">GenerativeAI.fashion</h1>
+    <h1 class="display-1 fw-bold mb-3 brand-title">GenerativeAI.fashion ✨</h1>
 
     <!-- Info panel -->
-    <div class="card border-0 shadow-sm bg-light mb-4 text-start">
+    <div class="card subcard mb-4 text-start">
       <div class="card-body py-3">
         <p class="mb-0">
-          GenerativeAI.fashion was created for the GoogleMind nano Banana Hackathon by Lee Englestone.
+          GenerativeAI.fashion was created for the <a href="https://www.kaggle.com/competitions/banana">Nano Banana Hackathon</a> 🍌 by <a href="https://www.linkedin.com/in/leeenglestone/">Lee Englestone</a>. 🚀
           Please bear in mind that this is a hackathon project created in a few hours.
         </p>
       </div>
     </div>
 
-    <p class="lead">Upload your photo ➕ a clothing image = a generated look</p>
+    <p class="lead mb-5">👤 Your photo ➕ 👗 clothing image = ✨ generated look</p>
 
     <form id="gen-form">
       <div class="row align-items-center g-3">
 
         <!-- User Photo -->
         <div class="col-md-3">
-          <div id="userDrop" class="card-panel">
-            <span class="text-muted">My Photo<br><small>(click or drop)</small></span>
+          <div class="section-label">👤 My Photo <span class="badge rounded-pill badge-soft">Click or drop</span></div>
+          <div id="userDrop" class="card-panel" data-bs-toggle="tooltip" data-bs-title="Upload a clear photo of yourself">
+            <span class="text-muted">Click or drop here</span>
             <input id="userImage" name="userImage" type="file" accept="image/*" class="visually-hidden">
           </div>
 
           <div id="userPreviewWrap" class="preview-wrap mt-2 d-none">
-            <button type="button" id="userClear" class="btn btn-sm btn-light border clear-btn" aria-label="Clear user image">✕</button>
+            <button type="button" id="userClear" class="btn btn-sm btn-light border clear-btn" aria-label="Clear user image">🗑️</button>
             <img id="userPreview" class="preview-img" alt="User preview">
           </div>
         </div>
 
         <!-- Plus -->
-        <div class="col-md-1 operator">+</div>
+        <div class="col-md-1 operator" aria-hidden="true">+</div>
 
         <!-- Clothing Image -->
         <div class="col-md-3">
-          <div id="clothDrop" class="card-panel">
-            <span class="text-muted">Clothing Image<br><small>(click or drop)</small></span>
+          <div class="section-label">👗 Clothing Image <span class="badge rounded-pill badge-soft">Click or drop</span></div>
+          <div id="clothDrop" class="card-panel" data-bs-toggle="tooltip" data-bs-title="Upload the clothing you like">
+            <span class="text-muted">Click or drop here</span>
             <input id="clothingImage" name="clothingImage" type="file" accept="image/*" class="visually-hidden">
           </div>
 
           <div id="clothPreviewWrap" class="preview-wrap mt-2 d-none">
-            <button type="button" id="clothClear" class="btn btn-sm btn-light border clear-btn" aria-label="Clear clothing image">✕</button>
+            <button type="button" id="clothClear" class="btn btn-sm btn-light border clear-btn" aria-label="Clear clothing image">🗑️</button>
             <img id="clothPreview" class="preview-img" alt="Clothing preview">
           </div>
         </div>
 
         <!-- Equals -->
-        <div class="col-md-1 operator">=</div>
+        <div class="col-md-1 operator" aria-hidden="true">=</div>
 
         <!-- Result -->
         <div class="col-md-4">
+          <div class="section-label">✨ Result</div>
           <div class="border rounded p-3" style="min-height:300px; display:flex; align-items:center; justify-content:center; background:#fff;">
             <img id="resultImg" class="preview-img d-none" alt="Result image">
             <span id="placeholder" class="text-muted">Result will appear here</span>
           </div>
           <div id="downloadWrap" class="d-none mt-2">
-            <a id="downloadLink" class="btn btn-outline-secondary btn-sm" download="generativeai-fashion.png">Download image</a>
+            <a id="downloadLink" class="btn btn-outline-secondary btn-sm" download="generativeai-fashion.png">⬇️ Download image</a>
           </div>
         </div>
 
@@ -104,20 +157,20 @@
       <!-- Prompt -->
       <div class="row mt-4">
         <div class="col">
-          <label for="prompt" class="form-label fw-semibold">Prompt</label>
+          <label for="prompt" class="form-label fw-semibold">📝 Prompt</label>
           <textarea id="prompt" name="prompt" class="form-control" rows="2" placeholder="e.g., 'Streetwear style in natural light'">Combine the clothes from image 2 onto the person in image 1.</textarea>
         </div>
       </div>
 
       <!-- Submit -->
       <div class="row mt-4">
-        <div class="col">
-          <button id="submitBtn" type="submit" class="btn btn-primary btn-lg">
-            <span id="btnLabel">Generate Look</span>
+        <div class="col d-grid d-sm-block">
+          <button id="submitBtn" type="submit" class="btn btn-primary btn-lg cta">
+            <span id="btnLabel">✨ Generate Look</span>
             <span class="spinner-border spinner-border-sm d-none" id="btnSpin" role="status"></span>
           </button>
           <div class="form-text mt-2" id="runLimitMsg">
-            Runs left: <span id="runsLeft">10</span> / 10
+            🧮 Runs left: <span id="runsLeft">10</span> / 10
           </div>
         </div>
       </div>
@@ -128,7 +181,7 @@
 
     <!-- History -->
     <section class="mt-5 text-start">
-      <h3 class="mb-3">Previous results</h3>
+      <h3 class="mb-3">Previous results 🧵</h3>
       <div id="historyGrid" class="row gy-4"></div>
       <div id="noHistory" class="text-muted">No saved results yet.</div>
     </section>
@@ -294,37 +347,40 @@
         const row = document.createElement("div");
         row.className = "col-12";
         row.innerHTML = `
-          <div class="card shadow-sm">
+          <div class="card subcard">
             <div class="card-body">
               <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
                 <div class="muted-small">
-                  <span>${timestamp}</span>
-                  ${promptShort ? `<span class="ms-2">•</span> <em class="ms-2">${promptShort}</em>` : ""}
+                  <span>🗓️ ${timestamp}</span>
+                  ${promptShort ? `<span class="ms-2">•</span> <em class="ms-2">“${promptShort}”</em>` : ""}
                 </div>
                 ${hasId ? `
                   <button type="button" class="btn btn-sm btn-outline-danger" data-action="remove-run" ${idAttr} title="Remove from this device">
-                    Remove
+                    🗑️ Remove
                   </button>` : ""}
               </div>
 
               <div class="row align-items-center g-3">
                 <div class="col-md-3 text-center">
+                  <div class="section-label text-center">👤</div>
                   <img class="thumb" src="${run.user?.dataUrl || ""}" alt="User image">
                 </div>
                 <div class="col-md-1 operator">+</div>
                 <div class="col-md-3 text-center">
+                  <div class="section-label text-center">👗</div>
                   <img class="thumb" src="${run.clothing?.dataUrl || ""}" alt="Clothing image">
                 </div>
                 <div class="col-md-1 operator">=</div>
                 <div class="col-md-4 text-center">
+                  <div class="section-label text-center">✨</div>
                   <img class="thumb" src="${run.result?.dataUrl || ""}" alt="Result image">
-                  <div class="mt-2">
+                  <div class="mt-3">
                     <a class="btn btn-sm btn-outline-secondary"
                        href="${run.result?.dataUrl || '#'}"
                        download="generativeai-fashion-${run.id ?? 'result'}.png"
                        ${run.result?.dataUrl ? "" : "aria-disabled='true' tabindex='-1'"}
                        title="Download result image">
-                      Download image
+                      ⬇️ Download image
                     </a>
                   </div>
                 </div>
@@ -415,7 +471,7 @@
     function setBusy(busy) {
       submitBtn.disabled = busy;
       btnSpin.classList.toggle("d-none", !busy);
-      btnLabel.textContent = busy ? "Generating…" : "Generate Look";
+      btnLabel.textContent = busy ? "Generating…" : "✨ Generate Look";
     }
 
     form.addEventListener("submit", async (e) => {
@@ -493,9 +549,13 @@
       }
     });
 
-    // Load any existing history & initialize UI
+    // Load any existing history & initialize UI + tooltips
     loadHistory();
     updateRunUI();
+
+    // Enable Bootstrap tooltips
+    const tooltipTriggerList = [...document.querySelectorAll('[data-bs-toggle="tooltip"]')];
+    tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/js/bootstrap.bundle.min.js"></script>
 </body>
