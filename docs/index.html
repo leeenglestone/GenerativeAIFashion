@@ -196,7 +196,7 @@
       try {
         
             //const FUNCTION_URL = "http://localhost:7102/api/Function1";
-            const FUNCTION_URL = "https://generativeaifashionazurefunctionapp.azurewebsites.net/api/Function1";
+            const FUNCTION_URL = "https://generativeaifashionazurefunctionapp2.azurewebsites.net/api/Function1";
         const resp = await fetch(FUNCTION_URL, { method: "POST", body: fd });
         if (!resp.ok) throw new Error(await resp.text() || `HTTP ${resp.status}`);
         const blob = await resp.blob();
