@@ -28,6 +28,7 @@ namespace GenerativeAIFashion.AzureFunctionApp
             {
 
                 // 1) Parse multipart/form-data
+                #region Get files and prompt from client site
                 if (!req.Headers.TryGetValues("Content-Type", out var contentTypeValues))
                     return await BadRequest(req, "Missing Content-Type.");
 
@@ -82,20 +83,99 @@ namespace GenerativeAIFashion.AzureFunctionApp
                 if (userImage is null || clothingImage is null)
                     return await BadRequest(req, "Both userImage and clothingImage are required.");
 
-               
+                #endregion
+
+
+                // Now send them to Gemini and return the result
+                #region Gemini call
+
+                var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY_1");                
+
+                var model = Environment.GetEnvironmentVariable("GEMINI_IMAGE_MODEL")
+                       ?? "gemini-2.5-flash-image-preview";
+
+                var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
+
+                var parts = new List<object>
+            {
+                new { text = (prompt ?? "").Trim() },
+                new
+                {
+                    inline_data = new
+                    {
+                        mime_type = userImage.Value.mime,
+                        data = Convert.ToBase64String(userImage.Value.bytes)
+                    }
+                },
+                new
+                {
+                    inline_data = new
+                    {
+                        mime_type = clothingImage.Value.mime,
+                        data = Convert.ToBase64String(clothingImage.Value.bytes)
+                    }
+                }
+            };
+
+                var requestBody = new
+                {
+                    contents = new[] { new { parts } },
+                    generationConfig = new
+                    {
+                        temperature = 0.7
+                    }
+                };
+
+                using var client = _httpClientFactory.CreateClient();
+                using var http = new HttpRequestMessage(HttpMethod.Post, endpoint);
+                http.Headers.Add("x-goog-api-key", apiKey);
+                http.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+                var genResp = await client.SendAsync(http);
+                var raw = await genResp.Content.ReadAsStringAsync();
+
+                if (!genResp.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Gemini error {Status}: {Body}", genResp.StatusCode, raw);
+                    return await Error(req, HttpStatusCode.BadGateway, raw);
+                }
+
+                // --- Robustly extract first inline image ---
+                if (!TryExtractInlineImage(raw, out var outMime, out var outB64, out var reason))
+                {
+                    _logger.LogWarning("No inline image found. Reason: {Reason}. Raw: {Raw}",
+                        reason ?? "unknown", Truncate(raw, 2000));
+                    var err = new
+                    {
+                        error = "No image returned from Gemini.",
+                        reason,
+                        raw = Truncate(raw, 2000)
+                    };
+                    var notOk = req.CreateResponse(HttpStatusCode.BadGateway);
+                    AddCors(notOk, req);
+                    notOk.Headers.Add("Content-Type", "application/json; charset=utf-8");
+                    await notOk.WriteStringAsync(JsonSerializer.Serialize(err));
+                    return notOk;
+                }
+
+                var bytesOut = Convert.FromBase64String(outB64!);
+                var ok = req.CreateResponse(HttpStatusCode.OK);
+                AddCors(ok, req);
+                ok.Headers.Add("Content-Type", outMime ?? "image/png");
+                await ok.WriteBytesAsync(bytesOut);
+                return ok;
+
+                #endregion
             }
             catch (Exception ex)
             {
-                //_logger.LogError(ex, "Unhandled error.");
-                //return await Error(req, HttpStatusCode.InternalServerError, "Server error.");
+                _logger.LogError(ex, "Unhandled error.");
+                var resp = req.CreateResponse(HttpStatusCode.InternalServerError);
+                AddCors(resp, req);
+                resp.Headers.Add("Content-Type", "text/plain; charset=utf-8");
+                await resp.WriteStringAsync("Server error.");
+                return resp;
             }
-
-            var response = req.CreateResponse(HttpStatusCode.OK);
-            response.Headers.Add("Content-Type", "text/plain; charset=utf-8");
-
-            response.WriteString("Welcome to Azure Functions!");
-
-            return response;
         }
 
         // ---- helpers ----
@@ -113,6 +193,77 @@ namespace GenerativeAIFashion.AzureFunctionApp
             resp.Headers.Add("Content-Type", "text/plain; charset=utf-8");
             await resp.WriteStringAsync(message);
             return resp;
+        }
+
+        private static bool TryExtractInlineImage(string json, out string? mime, out string? b64, out string? reason)
+        {
+            mime = null; b64 = null; reason = null;
+
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
+            {
+                reason = "No candidates array or empty.";
+                // Optional: promptFeedback details
+                if (root.TryGetProperty("promptFeedback", out var pf) &&
+                    pf.TryGetProperty("blockReason", out var br))
+                {
+                    reason = $"Blocked: {br.GetString()}";
+                }
+                return false;
+            }
+
+            foreach (var cand in candidates.EnumerateArray())
+            {
+                // Some responses include finishReason / safetyRatings — grab a hint if present
+                if (cand.TryGetProperty("finishReason", out var fr) && fr.ValueKind == JsonValueKind.String)
+                    reason ??= $"finishReason={fr.GetString()}";
+
+                if (!cand.TryGetProperty("content", out var content))
+                    continue;
+
+                if (!content.TryGetProperty("parts", out var partsEl))
+                    continue;
+
+                foreach (var p in partsEl.EnumerateArray())
+                {
+                    // inline image may appear as inline_data or inlineData
+                    if (p.TryGetProperty("inline_data", out var id) || p.TryGetProperty("inlineData", out id))
+                    {
+                        if (id.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.String)
+                        {
+                            b64 = dataEl.GetString();
+                            if (id.TryGetProperty("mime_type", out var mt) || id.TryGetProperty("mimeType", out mt))
+                                mime = mt.GetString();
+
+                            if (!string.IsNullOrEmpty(b64))
+                                return true;
+                        }
+                    }
+                }
+            }
+
+            reason ??= "No inline_data part found.";
+            return false;
+        }
+
+        private static string Truncate(string s, int max)
+            => s.Length <= max ? s : s.Substring(0, max) + "…";
+
+      
+
+        private static void AddCors(HttpResponseData resp, HttpRequestData req)
+        {
+            // In prod, validate against a whitelist. For local ease, echo the Origin.
+            var origin = req.Headers.TryGetValues("Origin", out var vals) ? vals.FirstOrDefault() : null;
+            if (!string.IsNullOrEmpty(origin))
+                resp.Headers.Add("Access-Control-Allow-Origin", origin);
+            else
+                resp.Headers.Add("Access-Control-Allow-Origin", "*"); // adjust for production if needed
+
+            resp.Headers.Add("Vary", "Origin");
+            resp.Headers.Add("Access-Control-Allow-Credentials", "true");
         }
     }
 }
