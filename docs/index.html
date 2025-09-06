@@ -17,27 +17,21 @@
   <style>
     body { padding-top: 2rem; }
     .card-panel {
-      min-height: 300px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px dashed #dee2e6;
-      border-radius: 1rem;
-      cursor: pointer;
-      background-color: #f8f9fa;
+      min-height: 300px; display: flex; align-items: center; justify-content: center;
+      border: 2px dashed #dee2e6; border-radius: 1rem; cursor: pointer; background-color: #f8f9fa;
       transition: background-color 0.2s;
     }
     .card-panel.dragover { background-color: #e9ecef; }
     .preview-img { max-width: 100%; max-height: 280px; border-radius: .5rem; }
     .preview-wrap { position: relative; display: inline-block; }
-    .clear-btn {
-      position: absolute; top: .5rem; right: .5rem;
-      z-index: 2;
-    }
+    .thumb { max-height: 140px; width: auto; border-radius: .5rem; }
+    .clear-btn { position: absolute; top: .5rem; right: .5rem; z-index: 2; }
     .operator {
       font-size: 3rem; font-weight: bold; color: #6c757d;
       display: flex; align-items: center; justify-content: center;
     }
+    #historyGrid .operator { font-size: 2rem; }
+    .muted-small { font-size: .85rem; color: #6c757d; }
   </style>
 </head>
 <body>
@@ -115,25 +109,32 @@
       <div id="errorAlert" class="alert alert-danger mt-3 d-none" role="alert"></div>
     </form>
 
-    <footer class="text-muted mt-5"><small>© <span id="year"></span> GenerativeAI.fashion</small></footer>
+    <!-- History -->
+    <section class="mt-5 text-start">
+      <h3 class="mb-3">Previous results</h3>
+      <div id="historyGrid" class="row gy-4"></div>
+      <div id="noHistory" class="text-muted">No saved results yet.</div>
+    </section>
+
+    <footer class="text-muted mt-5 text-center"><small>© <span id="year"></span> GenerativeAI.fashion</small></footer>
   </div>
 
   <script>
-    // Generic setup for an upload panel with preview + clear button
+    // ---------- Upload panels with hide/show + clear ----------
     function setupUploadPanel({ dropEl, inputEl, previewWrapEl, previewImgEl, clearBtnEl }) {
       const prevent = e => { e.preventDefault(); e.stopPropagation(); };
 
-      // Drag & drop visuals
+      // Drag visuals
       ["dragenter","dragover","dragleave","drop"].forEach(ev => dropEl.addEventListener(ev, prevent, false));
       dropEl.addEventListener("dragenter", () => dropEl.classList.add("dragover"));
       dropEl.addEventListener("dragover",  () => dropEl.classList.add("dragover"));
       dropEl.addEventListener("dragleave", () => dropEl.classList.remove("dragover"));
       dropEl.addEventListener("drop",      () => dropEl.classList.remove("dragover"));
 
-      // Click to open file dialog
+      // Click to file dialog
       dropEl.addEventListener("click", () => inputEl.click());
 
-      // Handle dropped files
+      // Handle dropped file
       dropEl.addEventListener("drop", e => {
         const file = e.dataTransfer?.files?.[0];
         if (file) {
@@ -142,7 +143,7 @@
         }
       });
 
-      // Handle chosen files via dialog
+      // Handle chosen file
       inputEl.addEventListener("change", e => {
         const file = e.target.files?.[0];
         if (file) showPreview(file);
@@ -160,7 +161,6 @@
         const reader = new FileReader();
         reader.onload = () => {
           previewImgEl.src = reader.result;
-          // toggle visibility
           dropEl.classList.add("d-none");
           previewWrapEl.classList.remove("d-none");
         };
@@ -192,7 +192,119 @@
 
     document.getElementById("year").textContent = new Date().getFullYear();
 
-    // Submit logic (unchanged apart from picking up the same inputs)
+    // ---------- IndexedDB: save & load triplets ----------
+    const DB_NAME = "gai-fashion";
+    const DB_VERSION = 1;
+    const STORE = "runs";
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(STORE)) {
+            const store = db.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
+            store.createIndex("createdAt", "createdAt", { unique: false });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function addRun(db, data) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.objectStore(STORE).add(data);
+      });
+    }
+
+    function getAllRuns(db) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readonly");
+        const req = tx.objectStore(STORE).getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    const fileToDataURL = (file) => new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+
+    const blobToDataURL = (blob) => new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+
+    // ---------- History UI ----------
+    const historyGrid = document.getElementById("historyGrid");
+    const noHistoryEl = document.getElementById("noHistory");
+
+    function renderHistory(runs) {
+      historyGrid.innerHTML = "";
+      if (!runs.length) {
+        noHistoryEl.classList.remove("d-none");
+        return;
+      }
+      noHistoryEl.classList.add("d-none");
+
+      // newest first
+      runs.sort((a,b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+
+      for (const run of runs) {
+        const row = document.createElement("div");
+        row.className = "col-12";
+        row.innerHTML = `
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div class="row align-items-center g-3">
+                <div class="col-12 muted-small mb-2">
+                  <span>${new Date(run.createdAt).toLocaleString()}</span>
+                  ${run.prompt ? `<span class="ms-2">•</span> <em class="ms-2">${escapeHtml(run.prompt).slice(0,140)}${run.prompt.length>140?'…':''}</em>` : ""}
+                </div>
+                <div class="col-md-3 text-center">
+                  <img class="thumb" src="${run.user?.dataUrl || ""}" alt="User image">
+                </div>
+                <div class="col-md-1 operator">+</div>
+                <div class="col-md-3 text-center">
+                  <img class="thumb" src="${run.clothing?.dataUrl || ""}" alt="Clothing image">
+                </div>
+                <div class="col-md-1 operator">=</div>
+                <div class="col-md-4 text-center">
+                  <img class="thumb" src="${run.result?.dataUrl || ""}" alt="Result image">
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        historyGrid.appendChild(row);
+      }
+    }
+
+    function escapeHtml(s) {
+      return (s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    async function loadHistory() {
+      try {
+        const db = await openDB();
+        const runs = await getAllRuns(db);
+        renderHistory(runs);
+        db.close?.();
+      } catch (e) {
+        console.warn("IndexedDB load failed:", e);
+      }
+    }
+
+    // ---------- Submit / call function ----------
     const form = document.getElementById("gen-form");
     const submitBtn = document.getElementById("submitBtn");
     const btnLabel = document.getElementById("btnLabel");
@@ -232,13 +344,37 @@
         const FUNCTION_URL = "https://generativeaifashionazurefunctionapp2.azurewebsites.net/api/Function1";
         const resp = await fetch(FUNCTION_URL, { method: "POST", body: fd });
         if (!resp.ok) throw new Error(await resp.text() || `HTTP ${resp.status}`);
+
         const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
-        resultImg.src = url;
+        const objectUrl = URL.createObjectURL(blob);
+
+        // Show result
+        resultImg.src = objectUrl;
         resultImg.classList.remove("d-none");
         placeholder.classList.add("d-none");
-        downloadLink.href = url;
+        downloadLink.href = objectUrl;
         downloadWrap.classList.remove("d-none");
+
+        // --- Save triplet to IndexedDB ---
+        const [userDataUrl, clothingDataUrl, resultDataUrl] = await Promise.all([
+          fileToDataURL(userFile),
+          fileToDataURL(clothingFile),
+          blobToDataURL(blob)
+        ]);
+
+        const runItem = {
+          createdAt: new Date().toISOString(),
+          prompt: document.getElementById("prompt").value || "",
+          user:     { mime: userFile.type,      dataUrl: userDataUrl },
+          clothing: { mime: clothingFile.type,  dataUrl: clothingDataUrl },
+          result:   { mime: blob.type || "image/png", dataUrl: resultDataUrl }
+        };
+
+        const db = await openDB();
+        await addRun(db, runItem);
+        const runs = await getAllRuns(db);
+        renderHistory(runs);
+        db.close?.();
       } catch (err) {
         errorAlert.textContent = err.message || "Error occurred.";
         errorAlert.classList.remove("d-none");
@@ -246,6 +382,9 @@
         setBusy(false);
       }
     });
+
+    // Load any existing history on page load
+    loadHistory();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/js/bootstrap.bundle.min.js"></script>
 </body>
