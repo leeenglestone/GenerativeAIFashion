@@ -4,100 +4,114 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GenerativeAI.fashion</title>
-  <!-- Bootstrap CSS (v5, always-up-to-date via jsDelivr) -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body { padding-top: 2rem; }
-    .preview-img { max-width: 100%; height: auto; border-radius: .5rem; border: 1px solid #e9ecef; }
-    .dropzone { border: 2px dashed #ced4da; border-radius: .75rem; padding: 1.25rem; text-align: center; cursor: pointer; }
-    .dropzone.dragover { background: #f8f9fa; }
-    .visually-hidden-important { position: absolute!important; width: 1px!important; height: 1px!important; padding: 0!important; margin: -1px!important; overflow: hidden!important; clip: rect(0,0,0,0)!important; border: 0!important; }
+    .card-panel {
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px dashed #dee2e6;
+      border-radius: 1rem;
+      cursor: pointer;
+      background-color: #f8f9fa;
+      transition: background-color 0.2s;
+    }
+    .card-panel.dragover {
+      background-color: #e9ecef;
+    }
+    .preview-img {
+      max-width: 100%;
+      max-height: 280px;
+      border-radius: .5rem;
+    }
+    .operator {
+      font-size: 3rem;
+      font-weight: bold;
+      color: #6c757d;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header class="mb-4 text-center">
-      <h1 class="display-5 fw-bold">GenerativeAI.fashion</h1>
-      <p class="lead mb-0">Try on styles with AI — upload your photo + clothing inspo, add a prompt, and generate a look.</p>
-    </header>
+  <div class="container text-center">
+    <h1 class="display-5 fw-bold mb-4">GenerativeAI.fashion</h1>
+    <p class="lead">Upload your photo ➕ a clothing image = a generated look</p>
 
-    <div class="row g-4">
-      <div class="col-lg-6">
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <form id="gen-form">
-              <div class="mb-3">
-                <label class="form-label fw-semibold">Your Photo</label>
-                <div id="userDrop" class="dropzone">
-                  <span class="text-muted">Drag & drop or click to upload</span>
-                  <input id="userImage" name="userImage" type="file" accept="image/*" class="visually-hidden-important">
-                </div>
-                <div class="mt-2">
-                  <img id="userPreview" class="preview-img d-none" alt="User preview">
-                </div>
-              </div>
+    <form id="gen-form">
+      <div class="row align-items-center g-3">
 
-              <div class="mb-3">
-                <label class="form-label fw-semibold">Clothing Image</label>
-                <div id="clothDrop" class="dropzone">
-                  <span class="text-muted">Drag & drop or click to upload</span>
-                  <input id="clothingImage" name="clothingImage" type="file" accept="image/*" class="visually-hidden-important">
-                </div>
-                <div class="mt-2">
-                  <img id="clothPreview" class="preview-img d-none" alt="Clothing preview">
-                </div>
-              </div>
-
-              <div class="mb-3">
-                <label for="prompt" class="form-label fw-semibold">Prompt (optional)</label>
-                <textarea id="prompt" name="prompt" class="form-control" rows="3" placeholder="e.g., 'Match color palette, streetwear vibe, natural lighting'">Compbine the first image (of me) with the second image (the clothes I want to try on) to see how I would look wearing those clothes.</textarea>
-              </div>
-
-              <div class="d-grid gap-2">
-                <button id="submitBtn" type="submit" class="btn btn-primary btn-lg">
-                  <span class="me-2" id="btnLabel">Generate Look</span>
-                  <span class="spinner-border spinner-border-sm d-none" id="btnSpin" role="status" aria-hidden="true"></span>
-                </button>
-              </div>
-
-              <div class="form-text mt-2">
-                We process images client → Azure Function → Gemini Images API. No images are stored server-side in this demo.
-              </div>
-            </form>
+        <!-- User Photo -->
+        <div class="col-md-3">
+          <div id="userDrop" class="card-panel">
+            <span class="text-muted">My Photo<br><small>(click or drop)</small></span>
+            <input id="userImage" name="userImage" type="file" accept="image/*" class="visually-hidden">
           </div>
+          <img id="userPreview" class="preview-img mt-2 d-none" alt="User preview">
+        </div>
+
+        <!-- Plus -->
+        <div class="col-md-1 operator">+</div>
+
+        <!-- Clothing Image -->
+        <div class="col-md-3">
+          <div id="clothDrop" class="card-panel">
+            <span class="text-muted">Clothing Image<br><small>(click or drop)</small></span>
+            <input id="clothingImage" name="clothingImage" type="file" accept="image/*" class="visually-hidden">
+          </div>
+          <img id="clothPreview" class="preview-img mt-2 d-none" alt="Clothing preview">
+        </div>
+
+        <!-- Equals -->
+        <div class="col-md-1 operator">=</div>
+
+        <!-- Result -->
+        <div class="col-md-4">
+          <div class="border rounded p-3" style="min-height:300px; display:flex; align-items:center; justify-content:center; background:#fff;">
+            <img id="resultImg" class="preview-img d-none" alt="Result image">
+            <span id="placeholder" class="text-muted">Result will appear here</span>
+          </div>
+          <div id="downloadWrap" class="d-none mt-2">
+            <a id="downloadLink" class="btn btn-outline-secondary btn-sm" download="generativeai-fashion.png">Download image</a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Prompt -->
+      <div class="row mt-4">
+        <div class="col">
+          <label for="prompt" class="form-label fw-semibold">Prompt</label>
+          <textarea id="prompt" name="prompt" class="form-control" rows="2" placeholder="e.g., 'Streetwear style in natural light'">Combine the first image (of me) with the second image (of clothing) and combine them to see what I would look like in those clothes.</textarea>
         </div>
       </div>
 
-      <div class="col-lg-6">
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <h5 class="card-title">Result</h5>
-            <div id="resultWrap" class="text-center">
-              <img id="resultImg" class="img-fluid d-none" alt="Generated result" />
-              <p id="placeholder" class="text-muted">Your generated look will appear here.</p>
-              <div id="downloadWrap" class="d-none mt-3">
-                <a id="downloadLink" class="btn btn-outline-secondary" download="generativeai-fashion.png">Download image</a>
-              </div>
-            </div>
-            <div id="errorAlert" class="alert alert-danger mt-3 d-none" role="alert"></div>
-          </div>
+      <!-- Submit -->
+      <div class="row mt-4">
+        <div class="col">
+          <button id="submitBtn" type="submit" class="btn btn-primary btn-lg">
+            <span id="btnLabel">Generate Look</span>
+            <span class="spinner-border spinner-border-sm d-none" id="btnSpin" role="status"></span>
+          </button>
         </div>
       </div>
-    </div>
 
-    <footer class="text-center mt-5 text-muted">
-      <small>© <span id="year"></span> GenerativeAI.fashion</small>
-    </footer>
+      <!-- Error -->
+      <div id="errorAlert" class="alert alert-danger mt-3 d-none" role="alert"></div>
+    </form>
+
+    <footer class="text-muted mt-5"><small>© <span id="year"></span> GenerativeAI.fashion</small></footer>
   </div>
 
   <script>
-    // --- Helpers: drag & drop setup ---
     function setupDropzone(zoneEl, inputEl, previewEl) {
       const prevent = e => { e.preventDefault(); e.stopPropagation(); };
       ["dragenter","dragover","dragleave","drop"].forEach(ev => zoneEl.addEventListener(ev, prevent, false));
-      ["dragenter","dragover"].forEach(ev => zoneEl.addEventListener(ev, () => zoneEl.classList.add("dragover"), false));
-      ["dragleave","drop"].forEach(ev => zoneEl.addEventListener(ev, () => zoneEl.classList.remove("dragover"), false));
-
+      ["dragenter","dragover"].forEach(() => zoneEl.addEventListener("dragenter", () => zoneEl.classList.add("dragover")));
+      ["dragleave","drop"].forEach(() => zoneEl.addEventListener("dragleave", () => zoneEl.classList.remove("dragover")));
       zoneEl.addEventListener("click", () => inputEl.click());
       zoneEl.addEventListener("drop", e => {
         const file = e.dataTransfer.files?.[0];
@@ -121,7 +135,6 @@
       reader.readAsDataURL(file);
     }
 
-    // --- Wire up ---
     const userDrop = document.getElementById("userDrop");
     const userInput = document.getElementById("userImage");
     const userPreview = document.getElementById("userPreview");
@@ -134,7 +147,6 @@
 
     document.getElementById("year").textContent = new Date().getFullYear();
 
-    // --- Submit handler ---
     const form = document.getElementById("gen-form");
     const submitBtn = document.getElementById("submitBtn");
     const btnLabel = document.getElementById("btnLabel");
@@ -158,46 +170,30 @@
       resultImg.classList.add("d-none");
       placeholder.classList.remove("d-none");
 
+      const fd = new FormData(form);
+
       const userFile = userInput.files?.[0];
       const clothingFile = clothInput.files?.[0];
-      const prompt = document.getElementById("prompt").value || "";
-
       if (!userFile || !clothingFile) {
-        errorAlert.textContent = "Please upload both your photo and a clothing image.";
+        errorAlert.textContent = "Please upload both images.";
         errorAlert.classList.remove("d-none");
         return;
       }
 
-      // Build form-data
-      const fd = new FormData();
-      fd.append("userImage", userFile);
-      fd.append("clothingImage", clothingFile);
-      fd.append("prompt", prompt);
-
       setBusy(true);
       try {
-        // Replace with your deployed Function URL (Function/Anonymous auth as configured)
-        // e.g. https://<your-app>.azurewebsites.net/api/GenerateOutfit?code=<functionKey>
         const FUNCTION_URL = "<YOUR_FUNCTION_URL>";
-
         const resp = await fetch(FUNCTION_URL, { method: "POST", body: fd });
-        if (!resp.ok) {
-          const text = await resp.text();
-          throw new Error(text || `HTTP ${resp.status}`);
-        }
-
-        // Expecting image bytes
+        if (!resp.ok) throw new Error(await resp.text() || `HTTP ${resp.status}`);
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
-
         resultImg.src = url;
         resultImg.classList.remove("d-none");
         placeholder.classList.add("d-none");
-
         downloadLink.href = url;
         downloadWrap.classList.remove("d-none");
       } catch (err) {
-        errorAlert.textContent = err.message || "Something went wrong.";
+        errorAlert.textContent = err.message || "Error occurred.";
         errorAlert.classList.remove("d-none");
       } finally {
         setBusy(false);
