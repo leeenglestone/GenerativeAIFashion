@@ -36,16 +36,18 @@
 </head>
 <body>
   <div class="container text-center">
-    <h1 class="display-5 fw-bold mb-4">GenerativeAI.fashion</h1>
-    <div class="card border-0 shadow-sm bg-light mb-4 text-start">
+    <h1 class="display-5 fw-bold mb-3">GenerativeAI.fashion</h1>
 
-    <div class="card-body py-3">
+    <!-- Info panel -->
+    <div class="card border-0 shadow-sm bg-light mb-4 text-start">
+      <div class="card-body py-3">
         <p class="mb-0">
-        GenerativeAI.fashion was created for the <a href="https://www.kaggle.com/competitions/banana/overview">Nano Banana Hackathon 🍌</a> by <a href="https://www.linkedin.com/in/leeenglestone/">Lee Englestone</a>.
-        Please bear in mind that this is a hackathon project created in a few hours.<br/> The creator reserves the right to limit the number of requests to reduce API fees.
+          GenerativeAI.fashion was created for the GoogleMind nano Banana Hackathon by Lee Englestone.
+          Please bear in mind that this is a hackathon project created in a few hours.
         </p>
+      </div>
     </div>
-    </div>
+
     <p class="lead">Upload your photo ➕ a clothing image = a generated look</p>
 
     <form id="gen-form">
@@ -74,7 +76,7 @@
             <input id="clothingImage" name="clothingImage" type="file" accept="image/*" class="visually-hidden">
           </div>
 
-          <div id="clothPreviewWrap" class="preview-wrap mt-2 d-none">
+        <div id="clothPreviewWrap" class="preview-wrap mt-2 d-none">
             <button type="button" id="clothClear" class="btn btn-sm btn-light border clear-btn" aria-label="Clear clothing image">✕</button>
             <img id="clothPreview" class="preview-img" alt="Clothing preview">
           </div>
@@ -111,6 +113,9 @@
             <span id="btnLabel">Generate Look</span>
             <span class="spinner-border spinner-border-sm d-none" id="btnSpin" role="status"></span>
           </button>
+          <div class="form-text mt-2" id="runLimitMsg">
+            Runs left: <span id="runsLeft">10</span> / 10
+          </div>
         </div>
       </div>
 
@@ -140,10 +145,8 @@
       dropEl.addEventListener("dragleave", () => dropEl.classList.remove("dragover"));
       dropEl.addEventListener("drop",      () => dropEl.classList.remove("dragover"));
 
-      // Click to file dialog
       dropEl.addEventListener("click", () => inputEl.click());
 
-      // Handle dropped file
       dropEl.addEventListener("drop", e => {
         const file = e.dataTransfer?.files?.[0];
         if (file) {
@@ -152,13 +155,11 @@
         }
       });
 
-      // Handle chosen file
       inputEl.addEventListener("change", e => {
         const file = e.target.files?.[0];
         if (file) showPreview(file);
       });
 
-      // Clear/reset
       clearBtnEl.addEventListener("click", () => {
         inputEl.value = "";
         previewImgEl.src = "";
@@ -209,7 +210,7 @@
     function openDB() {
       return new Promise((resolve, reject) => {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
-        req.onupgradeneeded = (e) => {
+        req.onupgradeneeded = () => {
           const db = req.result;
           if (!db.objectStoreNames.contains(STORE)) {
             const store = db.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
@@ -239,6 +240,15 @@
       });
     }
 
+    function deleteRun(db, id) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.objectStore(STORE).delete(id);
+      });
+    }
+
     const fileToDataURL = (file) => new Promise((res, rej) => {
       const r = new FileReader();
       r.onload = () => res(r.result);
@@ -257,6 +267,10 @@
     const historyGrid = document.getElementById("historyGrid");
     const noHistoryEl = document.getElementById("noHistory");
 
+    function escapeHtml(s) {
+      return (s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
     function renderHistory(runs) {
       historyGrid.innerHTML = "";
       if (!runs.length) {
@@ -269,16 +283,36 @@
       runs.sort((a,b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 
       for (const run of runs) {
+        const idAttr = (typeof run.id !== "undefined") ? `data-id="${run.id}"` : "";
+        const timestamp = new Date(run.createdAt).toLocaleString();
+        const promptShort = run.prompt ? `${escapeHtml(run.prompt).slice(0,140)}${run.prompt.length>140?'…':''}` : "";
+
         const row = document.createElement("div");
         row.className = "col-12";
         row.innerHTML = `
           <div class="card shadow-sm">
             <div class="card-body">
-              <div class="row align-items-center g-3">
-                <div class="col-12 muted-small mb-2">
-                  <span>${new Date(run.createdAt).toLocaleString()}</span>
-                  ${run.prompt ? `<span class="ms-2">•</span> <em class="ms-2">${escapeHtml(run.prompt).slice(0,140)}${run.prompt.length>140?'…':''}</em>` : ""}
+              <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                <div class="muted-small">
+                  <span>${timestamp}</span>
+                  ${promptShort ? `<span class="ms-2">•</span> <em class="ms-2">${promptShort}</em>` : ""}
                 </div>
+                <div class="d-flex gap-2">
+                  <a class="btn btn-sm btn-outline-secondary"
+                     href="${run.result?.dataUrl || '#'}"
+                     download="generativeai-fashion-${run.id ?? 'result'}.png"
+                     ${run.result?.dataUrl ? "" : "disabled"}
+                     title="Download result image">
+                    Download image
+                  </a>
+                  ${typeof run.id !== "undefined" ? `
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-action="remove-run" ${idAttr} title="Remove from this device">
+                      Remove
+                    </button>` : ""}
+                </div>
+              </div>
+
+              <div class="row align-items-center g-3">
                 <div class="col-md-3 text-center">
                   <img class="thumb" src="${run.user?.dataUrl || ""}" alt="User image">
                 </div>
@@ -298,9 +332,23 @@
       }
     }
 
-    function escapeHtml(s) {
-      return (s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
+    historyGrid.addEventListener("click", async (e) => {
+      const btn = e.target.closest('[data-action="remove-run"]');
+      if (!btn) return;
+
+      const id = Number(btn.getAttribute("data-id"));
+      if (!Number.isFinite(id)) return;
+
+      try {
+        const db = await openDB();
+        await deleteRun(db, id);
+        const runs = await getAllRuns(db);
+        renderHistory(runs);
+        db.close?.();
+      } catch (err) {
+        console.warn("Failed to delete run:", err);
+      }
+    });
 
     async function loadHistory() {
       try {
@@ -310,6 +358,38 @@
         db.close?.();
       } catch (e) {
         console.warn("IndexedDB load failed:", e);
+      }
+    }
+
+    // ---------- Run limit via cookie ----------
+    const RUN_LIMIT = 10;
+    const RUN_COOKIE = "gai_runs";
+    const RUN_COOKIE_DAYS = 365;
+
+    function setCookie(name, value, days) {
+      const exp = new Date(Date.now() + days*24*60*60*1000).toUTCString();
+      document.cookie = `${name}=${encodeURIComponent(value)}; expires=${exp}; path=/; SameSite=Lax`;
+    }
+    function getCookie(name) {
+      const m = document.cookie.split("; ").find(r => r.startsWith(name + "="));
+      return m ? decodeURIComponent(m.split("=")[1]) : null;
+    }
+    function getRunCount() {
+      const v = parseInt(getCookie(RUN_COOKIE) || "0", 10);
+      return Number.isNaN(v) ? 0 : v;
+    }
+    function setRunCount(n) { setCookie(RUN_COOKIE, String(n), RUN_COOKIE_DAYS); }
+    function updateRunUI() {
+      const count = getRunCount();
+      const left = Math.max(RUN_LIMIT - count, 0);
+      const runsLeftEl = document.getElementById("runsLeft");
+      if (runsLeftEl) runsLeftEl.textContent = left;
+
+      const submitBtn = document.getElementById("submitBtn");
+      if (submitBtn) {
+        const capped = count >= RUN_LIMIT;
+        submitBtn.disabled = capped;
+        submitBtn.title = capped ? "Run limit reached for this browser." : "";
       }
     }
 
@@ -336,6 +416,15 @@
       downloadWrap.classList.add("d-none");
       resultImg.classList.add("d-none");
       placeholder.classList.remove("d-none");
+
+      // Limit check
+      const currentRuns = getRunCount();
+      if (currentRuns >= RUN_LIMIT) {
+        errorAlert.textContent = "You’ve reached the 10-run limit for this browser.";
+        errorAlert.classList.remove("d-none");
+        updateRunUI();
+        return;
+      }
 
       const userFile = userInput.files?.[0];
       const clothingFile = clothInput.files?.[0];
@@ -364,7 +453,7 @@
         downloadLink.href = objectUrl;
         downloadWrap.classList.remove("d-none");
 
-        // --- Save triplet to IndexedDB ---
+        // Save triplet to IndexedDB
         const [userDataUrl, clothingDataUrl, resultDataUrl] = await Promise.all([
           fileToDataURL(userFile),
           fileToDataURL(clothingFile),
@@ -384,16 +473,21 @@
         const runs = await getAllRuns(db);
         renderHistory(runs);
         db.close?.();
+
+        // Increment cookie count after success
+        setRunCount(currentRuns + 1);
       } catch (err) {
         errorAlert.textContent = err.message || "Error occurred.";
         errorAlert.classList.remove("d-none");
       } finally {
         setBusy(false);
+        updateRunUI();
       }
     });
 
-    // Load any existing history on page load
+    // Load any existing history & initialize UI
     loadHistory();
+    updateRunUI();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/js/bootstrap.bundle.min.js"></script>
 </body>
