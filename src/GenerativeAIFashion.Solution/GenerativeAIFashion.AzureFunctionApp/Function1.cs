@@ -22,7 +22,7 @@ namespace GenerativeAIFashion.AzureFunctionApp
         }
 
         [Function("Function1")]
-        public async Task<HttpResponseData> RunAsync([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequestData req)
+        public async Task<HttpResponseData> RunAsync([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")] HttpRequestData req)
         {
             try
             {
