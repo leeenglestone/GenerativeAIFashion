@@ -24,13 +24,16 @@
     .card-panel.dragover { background-color: #e9ecef; }
     .preview-img { max-width: 100%; max-height: 280px; border-radius: .5rem; }
     .preview-wrap { position: relative; display: inline-block; }
-    .thumb { max-height: 140px; width: auto; border-radius: .5rem; }
+    .thumb { max-height: 240px; width: auto; border-radius: .5rem; object-fit: contain; }
+    @media (max-width: 576px) {
+      .thumb { max-height: 180px; }
+    }
     .clear-btn { position: absolute; top: .5rem; right: .5rem; z-index: 2; }
     .operator {
       font-size: 3rem; font-weight: bold; color: #6c757d;
       display: flex; align-items: center; justify-content: center;
     }
-    #historyGrid .operator { font-size: 2rem; }
+    #historyGrid .operator { font-size: 2.25rem; }
     .muted-small { font-size: .85rem; color: #6c757d; }
   </style>
 </head>
@@ -76,7 +79,7 @@
             <input id="clothingImage" name="clothingImage" type="file" accept="image/*" class="visually-hidden">
           </div>
 
-        <div id="clothPreviewWrap" class="preview-wrap mt-2 d-none">
+          <div id="clothPreviewWrap" class="preview-wrap mt-2 d-none">
             <button type="button" id="clothClear" class="btn btn-sm btn-light border clear-btn" aria-label="Clear clothing image">✕</button>
             <img id="clothPreview" class="preview-img" alt="Clothing preview">
           </div>
@@ -283,7 +286,8 @@
       runs.sort((a,b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 
       for (const run of runs) {
-        const idAttr = (typeof run.id !== "undefined") ? `data-id="${run.id}"` : "";
+        const hasId = typeof run.id !== "undefined";
+        const idAttr = hasId ? `data-id="${run.id}"` : "";
         const timestamp = new Date(run.createdAt).toLocaleString();
         const promptShort = run.prompt ? `${escapeHtml(run.prompt).slice(0,140)}${run.prompt.length>140?'…':''}` : "";
 
@@ -297,19 +301,10 @@
                   <span>${timestamp}</span>
                   ${promptShort ? `<span class="ms-2">•</span> <em class="ms-2">${promptShort}</em>` : ""}
                 </div>
-                <div class="d-flex gap-2">
-                  <a class="btn btn-sm btn-outline-secondary"
-                     href="${run.result?.dataUrl || '#'}"
-                     download="generativeai-fashion-${run.id ?? 'result'}.png"
-                     ${run.result?.dataUrl ? "" : "disabled"}
-                     title="Download result image">
-                    Download image
-                  </a>
-                  ${typeof run.id !== "undefined" ? `
-                    <button type="button" class="btn btn-sm btn-outline-danger" data-action="remove-run" ${idAttr} title="Remove from this device">
-                      Remove
-                    </button>` : ""}
-                </div>
+                ${hasId ? `
+                  <button type="button" class="btn btn-sm btn-outline-danger" data-action="remove-run" ${idAttr} title="Remove from this device">
+                    Remove
+                  </button>` : ""}
               </div>
 
               <div class="row align-items-center g-3">
@@ -323,6 +318,15 @@
                 <div class="col-md-1 operator">=</div>
                 <div class="col-md-4 text-center">
                   <img class="thumb" src="${run.result?.dataUrl || ""}" alt="Result image">
+                  <div class="mt-2">
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="${run.result?.dataUrl || '#'}"
+                       download="generativeai-fashion-${run.id ?? 'result'}.png"
+                       ${run.result?.dataUrl ? "" : "aria-disabled='true' tabindex='-1'"}
+                       title="Download result image">
+                      Download image
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -332,12 +336,16 @@
       }
     }
 
+    // Confirm before delete
     historyGrid.addEventListener("click", async (e) => {
       const btn = e.target.closest('[data-action="remove-run"]');
       if (!btn) return;
 
       const id = Number(btn.getAttribute("data-id"));
       if (!Number.isFinite(id)) return;
+
+      const ok = window.confirm("Remove this saved result from this device?");
+      if (!ok) return;
 
       try {
         const db = await openDB();
