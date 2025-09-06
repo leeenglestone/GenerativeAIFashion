@@ -1,15 +1,15 @@
 <!doctype html>
 <html lang="en" data-bs-theme="light">
 <head>
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-FKF3N2QG1H"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-FKF3N2QG1H"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-FKF3N2QG1H');
+  </script>
 
-  gtag('config', 'G-FKF3N2QG1H');
-</script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GenerativeAI.fashion</title>
@@ -27,21 +27,16 @@
       background-color: #f8f9fa;
       transition: background-color 0.2s;
     }
-    .card-panel.dragover {
-      background-color: #e9ecef;
-    }
-    .preview-img {
-      max-width: 100%;
-      max-height: 280px;
-      border-radius: .5rem;
+    .card-panel.dragover { background-color: #e9ecef; }
+    .preview-img { max-width: 100%; max-height: 280px; border-radius: .5rem; }
+    .preview-wrap { position: relative; display: inline-block; }
+    .clear-btn {
+      position: absolute; top: .5rem; right: .5rem;
+      z-index: 2;
     }
     .operator {
-      font-size: 3rem;
-      font-weight: bold;
-      color: #6c757d;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      font-size: 3rem; font-weight: bold; color: #6c757d;
+      display: flex; align-items: center; justify-content: center;
     }
   </style>
 </head>
@@ -59,7 +54,11 @@
             <span class="text-muted">My Photo<br><small>(click or drop)</small></span>
             <input id="userImage" name="userImage" type="file" accept="image/*" class="visually-hidden">
           </div>
-          <img id="userPreview" class="preview-img mt-2 d-none" alt="User preview">
+
+          <div id="userPreviewWrap" class="preview-wrap mt-2 d-none">
+            <button type="button" id="userClear" class="btn btn-sm btn-light border clear-btn" aria-label="Clear user image">✕</button>
+            <img id="userPreview" class="preview-img" alt="User preview">
+          </div>
         </div>
 
         <!-- Plus -->
@@ -71,7 +70,11 @@
             <span class="text-muted">Clothing Image<br><small>(click or drop)</small></span>
             <input id="clothingImage" name="clothingImage" type="file" accept="image/*" class="visually-hidden">
           </div>
-          <img id="clothPreview" class="preview-img mt-2 d-none" alt="Clothing preview">
+
+          <div id="clothPreviewWrap" class="preview-wrap mt-2 d-none">
+            <button type="button" id="clothClear" class="btn btn-sm btn-light border clear-btn" aria-label="Clear clothing image">✕</button>
+            <img id="clothPreview" class="preview-img" alt="Clothing preview">
+          </div>
         </div>
 
         <!-- Equals -->
@@ -94,10 +97,7 @@
       <div class="row mt-4">
         <div class="col">
           <label for="prompt" class="form-label fw-semibold">Prompt</label>
-          <!-- <textarea id="prompt" name="prompt" class="form-control" rows="2" placeholder="e.g., 'Streetwear style in natural light'">Combine the first image (of me) with the second image (of clothing) and combine them to see what I would look like in those clothes.</textarea> -->
-           <!-- <textarea id="prompt" name="prompt" class="form-control" rows="2" placeholder="e.g., 'Streetwear style in natural light'">Replace the image of the model with me wearing their clothes in their pose.</textarea> -->
-            <textarea id="prompt" name="prompt" class="form-control" rows="2" placeholder="e.g., 'Streetwear style in natural light'">Combine the clothes from image 2 onto the person in image 1.</textarea>
-          
+          <textarea id="prompt" name="prompt" class="form-control" rows="2" placeholder="e.g., 'Streetwear style in natural light'">Combine the clothes from image 2 onto the person in image 1.</textarea>
         </div>
       </div>
 
@@ -119,46 +119,80 @@
   </div>
 
   <script>
-    function setupDropzone(zoneEl, inputEl, previewEl) {
+    // Generic setup for an upload panel with preview + clear button
+    function setupUploadPanel({ dropEl, inputEl, previewWrapEl, previewImgEl, clearBtnEl }) {
       const prevent = e => { e.preventDefault(); e.stopPropagation(); };
-      ["dragenter","dragover","dragleave","drop"].forEach(ev => zoneEl.addEventListener(ev, prevent, false));
-      ["dragenter","dragover"].forEach(() => zoneEl.addEventListener("dragenter", () => zoneEl.classList.add("dragover")));
-      ["dragleave","drop"].forEach(() => zoneEl.addEventListener("dragleave", () => zoneEl.classList.remove("dragover")));
-      zoneEl.addEventListener("click", () => inputEl.click());
-      zoneEl.addEventListener("drop", e => {
-        const file = e.dataTransfer.files?.[0];
+
+      // Drag & drop visuals
+      ["dragenter","dragover","dragleave","drop"].forEach(ev => dropEl.addEventListener(ev, prevent, false));
+      dropEl.addEventListener("dragenter", () => dropEl.classList.add("dragover"));
+      dropEl.addEventListener("dragover",  () => dropEl.classList.add("dragover"));
+      dropEl.addEventListener("dragleave", () => dropEl.classList.remove("dragover"));
+      dropEl.addEventListener("drop",      () => dropEl.classList.remove("dragover"));
+
+      // Click to open file dialog
+      dropEl.addEventListener("click", () => inputEl.click());
+
+      // Handle dropped files
+      dropEl.addEventListener("drop", e => {
+        const file = e.dataTransfer?.files?.[0];
         if (file) {
-          inputEl.files = e.dataTransfer.files;
-          showPreview(file, previewEl);
+          try { inputEl.files = e.dataTransfer.files; } catch {}
+          showPreview(file);
         }
       });
+
+      // Handle chosen files via dialog
       inputEl.addEventListener("change", e => {
         const file = e.target.files?.[0];
-        if (file) showPreview(file, previewEl);
+        if (file) showPreview(file);
       });
+
+      // Clear/reset
+      clearBtnEl.addEventListener("click", () => {
+        inputEl.value = "";
+        previewImgEl.src = "";
+        previewWrapEl.classList.add("d-none");
+        dropEl.classList.remove("d-none");
+      });
+
+      function showPreview(file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          previewImgEl.src = reader.result;
+          // toggle visibility
+          dropEl.classList.add("d-none");
+          previewWrapEl.classList.remove("d-none");
+        };
+        reader.readAsDataURL(file);
+      }
     }
 
-    function showPreview(file, imgEl) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        imgEl.src = reader.result;
-        imgEl.classList.remove("d-none");
-      };
-      reader.readAsDataURL(file);
-    }
+    // Hook up both panels
+    const userDrop         = document.getElementById("userDrop");
+    const userInput        = document.getElementById("userImage");
+    const userPreviewWrap  = document.getElementById("userPreviewWrap");
+    const userPreview      = document.getElementById("userPreview");
+    const userClear        = document.getElementById("userClear");
 
-    const userDrop = document.getElementById("userDrop");
-    const userInput = document.getElementById("userImage");
-    const userPreview = document.getElementById("userPreview");
-    setupDropzone(userDrop, userInput, userPreview);
+    const clothDrop        = document.getElementById("clothDrop");
+    const clothInput       = document.getElementById("clothingImage");
+    const clothPreviewWrap = document.getElementById("clothPreviewWrap");
+    const clothPreview     = document.getElementById("clothPreview");
+    const clothClear       = document.getElementById("clothClear");
 
-    const clothDrop = document.getElementById("clothDrop");
-    const clothInput = document.getElementById("clothingImage");
-    const clothPreview = document.getElementById("clothPreview");
-    setupDropzone(clothDrop, clothInput, clothPreview);
+    setupUploadPanel({
+      dropEl: userDrop, inputEl: userInput,
+      previewWrapEl: userPreviewWrap, previewImgEl: userPreview, clearBtnEl: userClear
+    });
+    setupUploadPanel({
+      dropEl: clothDrop, inputEl: clothInput,
+      previewWrapEl: clothPreviewWrap, previewImgEl: clothPreview, clearBtnEl: clothClear
+    });
 
     document.getElementById("year").textContent = new Date().getFullYear();
 
+    // Submit logic (unchanged apart from picking up the same inputs)
     const form = document.getElementById("gen-form");
     const submitBtn = document.getElementById("submitBtn");
     const btnLabel = document.getElementById("btnLabel");
@@ -182,8 +216,6 @@
       resultImg.classList.add("d-none");
       placeholder.classList.remove("d-none");
 
-      const fd = new FormData(form);
-
       const userFile = userInput.files?.[0];
       const clothingFile = clothInput.files?.[0];
       if (!userFile || !clothingFile) {
@@ -192,11 +224,12 @@
         return;
       }
 
+      const fd = new FormData(form);
+
       setBusy(true);
       try {
-        
-            //const FUNCTION_URL = "http://localhost:7102/api/Function1";
-            const FUNCTION_URL = "https://generativeaifashionazurefunctionapp2.azurewebsites.net/api/Function1";
+        // const FUNCTION_URL = "http://localhost:7102/api/Function1";
+        const FUNCTION_URL = "https://generativeaifashionazurefunctionapp2.azurewebsites.net/api/Function1";
         const resp = await fetch(FUNCTION_URL, { method: "POST", body: fd });
         if (!resp.ok) throw new Error(await resp.text() || `HTTP ${resp.status}`);
         const blob = await resp.blob();
