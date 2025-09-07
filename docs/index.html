@@ -27,7 +27,6 @@
   <meta name="twitter:title" content="GenerativeAI.fashion" />
   <meta name="twitter:image" content="https://generativeai.fashion/generativeai-fashion.png" />
 
-
   <style>
     :root {
       --brand-grad: linear-gradient(135deg, #6366f1 0%, #22d3ee 50%, #a78bfa 100%);
@@ -444,12 +443,10 @@
       historyGrid.innerHTML = "";
 
       if (!runs.length) {
-        // Hide the entire Previous results panel if there are no runs
         historySection.classList.add("d-none");
         return;
       }
 
-      // Show section when we have runs
       historySection.classList.remove("d-none");
 
       // newest first
@@ -523,6 +520,8 @@
       try {
         const db = await openDB();
         await deleteRun(db, id);
+        // notify other tabs
+        localStorage.setItem("gai_history_ping", String(Date.now()));
         const runs = await getAllRuns(db);
         renderHistory(runs);
         db.close?.();
@@ -539,8 +538,7 @@
         db.close?.();
       } catch (e) {
         console.warn("IndexedDB load failed:", e);
-        // If something goes wrong, keep the section hidden to avoid empty panel.
-        historySection.classList.add("d-none");
+        // Do NOT forcibly hide; if the section was visible, leave it visible.
       }
     }
 
@@ -653,6 +651,8 @@
 
         const db = await openDB();
         await addRun(db, runItem);
+        // notify other tabs that history changed
+        localStorage.setItem("gai_history_ping", String(Date.now()));
         const runs = await getAllRuns(db);
         renderHistory(runs);
         db.close?.();
@@ -670,12 +670,23 @@
 
     // Init
     document.getElementById("year").textContent = new Date().getFullYear();
+
+    // Load history now…
+    loadHistory();
+
+    // …and when navigating via BFCache or switching tabs/windows
+    window.addEventListener("pageshow", () => loadHistory());
+    // Cross-tab history refresh ping
+    window.addEventListener("storage", (e) => {
+      if (e.key === "gai_history_ping") loadHistory();
+    });
+
+    // Run-limit UI + tooltips
+    updateRunUI();
     (function initTooltips(){
       const tooltipTriggerList = [...document.querySelectorAll('[data-bs-toggle="tooltip"]')];
       tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
     })();
-    loadHistory();
-    updateRunUI();
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/js/bootstrap.bundle.min.js"></script>
 </body>
