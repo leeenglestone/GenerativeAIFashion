@@ -20,15 +20,14 @@
     }
     body { padding-top: 2rem; }
 
-    /* Brand title: fluid, wraps nicely on mobile */
+    /* Brand title: slightly smaller, fluid, wraps nicely on mobile */
     .brand-title {
       background: var(--brand-grad);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
-      /* Fluid size that’s huge on desktop but fits phones */
-      font-size: clamp(2.2rem, 6vw + 1rem, 6rem);
-      line-height: 1.05;
+      font-size: clamp(1.9rem, 3.6vw + 0.8rem, 3.6rem);
+      line-height: 1.06;
       overflow-wrap: anywhere;
       word-break: break-word;
       text-wrap: balance;
@@ -51,13 +50,8 @@
     .card-panel:hover { transform: translateY(-2px); border-color: #94a3b8; background-color: #f1f5f9; }
     .card-panel.dragover { background-color: #e2e8f0; }
 
-    .section-label {
-      font-weight: 700; letter-spacing: .3px;
-      color: #475569; margin-bottom: .25rem;
-    }
-    .badge-soft {
-      background: #eef2ff; color: #4f46e5; border: 1px solid #e0e7ff;
-    }
+    .section-label { font-weight: 700; letter-spacing: .3px; color: #475569; margin-bottom: .25rem; }
+    .badge-soft { background: #eef2ff; color: #4f46e5; border: 1px solid #e0e7ff; }
 
     .preview-img { max-width: 100%; max-height: 280px; border-radius: .75rem; box-shadow: 0 6px 20px rgba(2,6,23,.08); }
     .preview-wrap { position: relative; display: inline-block; }
@@ -86,9 +80,7 @@
       50% { transform: translateY(-3px); }
     }
 
-    .cta {
-      background: var(--brand-grad); border: 0; box-shadow: 0 10px 24px rgba(34,211,238,.25);
-    }
+    .cta { background: var(--brand-grad); border: 0; box-shadow: 0 10px 24px rgba(34,211,238,.25); }
     .cta:hover { filter: brightness(.98); transform: translateY(-1px); }
     .cta:active { transform: translateY(0); }
 
@@ -100,15 +92,34 @@
     /* Examples */
     .example-thumb { max-height: 240px; width: auto; border-radius: .75rem; object-fit: contain; box-shadow: 0 6px 20px rgba(2,6,23,.08); }
 
-    /* Slightly reduce emoji operator size on small phones to avoid crowding */
+    /* Slightly reduce operator size on small phones to avoid crowding */
     @media (max-width: 420px) {
       .operator { font-size: 2.25rem; }
     }
+
+    /* Footer styling */
+    .site-footer {
+      position: relative;
+      background: #f8fafc;
+      border-top: 1px solid #e5e7eb;
+      padding: 2rem 0;
+      margin-top: 4rem;
+      color: #64748b;
+    }
+    .site-footer::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: var(--brand-grad);
+    }
+    .site-footer a { color: #475569; text-decoration: none; }
+    .site-footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
   <div class="container text-center">
-    <!-- Big, mobile-friendly brand title -->
+    <!-- Slightly smaller, mobile-friendly brand title -->
     <h1 class="brand-title">GenerativeAI.fashion ✨</h1>
     <p class="h2 fw-semibold text-body-secondary mb-3">Try on different clothes virtually using AI</p>
 
@@ -206,7 +217,13 @@
       <div id="errorAlert" class="alert alert-danger mt-3 d-none" role="alert"></div>
     </form>
 
-    <!-- Examples (replace the EXAMPLE_URL_… src values with your real image URLs) -->
+    <!-- Previous results — hidden until there are saved results -->
+    <section id="historySection" class="mt-5 text-start d-none">
+      <h3 class="mb-3">Previous results 🧵</h3>
+      <div id="historyGrid" class="row gy-4"></div>
+    </section>
+
+    <!-- Examples (after previous results) -->
     <section id="examplesSection" class="mt-5 text-start">
       <h3 class="mb-3">Examples 👀</h3>
 
@@ -255,14 +272,23 @@
       </div>
     </section>
 
-    <!-- Previous results — hidden until there are saved results -->
-    <section id="historySection" class="mt-5 text-start d-none">
-      <h3 class="mb-3">Previous results 🧵</h3>
-      <div id="historyGrid" class="row gy-4"></div>
-    </section>
-
-    <footer class="text-muted mt-5 text-center"><small>© <span id="year"></span> GenerativeAI.fashion</small></footer>
   </div>
+
+  <!-- Improved footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="row align-items-center gy-3">
+        <div class="col-12 col-md text-center text-md-start">
+          <div>© <span id="year"></span> <strong>GenerativeAI.fashion</strong></div>
+          <div class="small">Made with 🤖 &amp; ☕ — try on outfits virtually.</div>
+        </div>
+        <div class="col-12 col-md text-center text-md-end">
+          <a href="https://www.kaggle.com/competitions/banana" target="_blank" rel="noopener" class="me-3">Nano Banana 🍌</a>
+          <a href="https://www.linkedin.com/in/leeenglestone/" target="_blank" rel="noopener">Lee on LinkedIn</a>
+        </div>
+      </div>
+    </div>
+  </footer>
 
   <script>
     // ---------- Upload panels with hide/show + clear ----------
@@ -331,8 +357,6 @@
       previewWrapEl: clothPreviewWrap, previewImgEl: clothPreview, clearBtnEl: clothClear
     });
 
-    document.getElementById("year").textContent = new Date().getFullYear();
-
     // ---------- IndexedDB: save & load triplets ----------
     const DB_NAME = "gai-fashion";
     const DB_VERSION = 1;
@@ -399,7 +423,7 @@
     const historyGrid = document.getElementById("historyGrid");
 
     function escapeHtml(s) {
-      return (s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      return (s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
     function renderHistory(runs) {
@@ -630,13 +654,14 @@
       }
     });
 
-    // Load any existing history & initialize UI + tooltips
+    // Init
+    document.getElementById("year").textContent = new Date().getFullYear();
+    (function initTooltips(){
+      const tooltipTriggerList = [...document.querySelectorAll('[data-bs-toggle="tooltip"]')];
+      tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+    })();
     loadHistory();
     updateRunUI();
-
-    // Enable Bootstrap tooltips
-    const tooltipTriggerList = [...document.querySelectorAll('[data-bs-toggle="tooltip"]')];
-    tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
   </script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/js/bootstrap.bundle.min.js"></script>
 </body>
