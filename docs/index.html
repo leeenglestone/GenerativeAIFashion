@@ -19,12 +19,23 @@
       --brand-grad: linear-gradient(135deg, #6366f1 0%, #22d3ee 50%, #a78bfa 100%);
     }
     body { padding-top: 2rem; }
+
+    /* Brand title: fluid, wraps nicely on mobile */
     .brand-title {
       background: var(--brand-grad);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
+      /* Fluid size that’s huge on desktop but fits phones */
+      font-size: clamp(2.2rem, 6vw + 1rem, 6rem);
+      line-height: 1.05;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      text-wrap: balance;
+      margin-bottom: .25rem;
+      font-weight: 800;
     }
+
     .subcard {
       border: 0;
       background: #f8fafc;
@@ -85,24 +96,35 @@
 
     /* Extra breathing room for the tagline on large screens (in addition to mb-5) */
     @media (min-width: 992px) { .lead.mb-5 { margin-bottom: 3rem !important; } }
+
+    /* Examples */
+    .example-thumb { max-height: 240px; width: auto; border-radius: .75rem; object-fit: contain; box-shadow: 0 6px 20px rgba(2,6,23,.08); }
+
+    /* Slightly reduce emoji operator size on small phones to avoid crowding */
+    @media (max-width: 420px) {
+      .operator { font-size: 2.25rem; }
+    }
   </style>
 </head>
 <body>
   <div class="container text-center">
-    <h1 class="display-1 fw-bold mb-3 brand-title">GenerativeAI.fashion ✨</h1>
-
- <!-- New large subtitle -->
+    <!-- Big, mobile-friendly brand title -->
+    <h1 class="brand-title">GenerativeAI.fashion ✨</h1>
     <p class="h2 fw-semibold text-body-secondary mb-3">Try on different clothes virtually using AI</p>
 
-
-    <!-- Info panel -->
+    <!-- Info panel (updated) -->
     <div class="card subcard mb-4 text-start">
       <div class="card-body py-3">
         <p class="mb-0">
-          GenerativeAI.fashion was created for the <a href="https://www.kaggle.com/competitions/banana">Nano Banana Hackathon</a> 🍌 by <a href="https://www.linkedin.com/in/leeenglestone/">Lee Englestone</a>. 🚀
+          GenerativeAI.fashion was created for the
+          <a href="https://www.kaggle.com/competitions/banana" target="_blank" rel="noopener">Nano Banana Hackathon</a> 🍌
+          by <a href="https://www.linkedin.com/in/leeenglestone/" target="_blank" rel="noopener">Lee Englestone</a>. 🚀
           Please bear in mind that this is a hackathon project created in a few hours 🕑.
         </p>
-        <p class="mb-0">It is currently using a free tier, so I have limited it to 10 generations per person. If the judges cannot get it to work, please let me know and I will update the API key to a paid one.</p>
+        <p class="mb-0">
+          It is currently using a free tier, so is limited to 10 generations per person.
+          If the judges cannot get it to work, please let me know and I will update the API key to a paid one.
+        </p>
       </div>
     </div>
 
@@ -184,11 +206,59 @@
       <div id="errorAlert" class="alert alert-danger mt-3 d-none" role="alert"></div>
     </form>
 
-    <!-- History -->
-    <section class="mt-5 text-start">
+    <!-- Examples (replace the EXAMPLE_URL_… src values with your real image URLs) -->
+    <section id="examplesSection" class="mt-5 text-start">
+      <h3 class="mb-3">Examples 👀</h3>
+
+      <!-- Example Set 1 -->
+      <div class="card subcard mb-4">
+        <div class="card-body">
+          <div class="row align-items-center g-3">
+            <div class="col-md-3 text-center">
+              <div class="section-label text-center">👤</div>
+              <img class="example-thumb" src="example-1-a.jpg" alt="Example user 1">
+            </div>
+            <div class="col-md-1 operator">+</div>
+            <div class="col-md-3 text-center">
+              <div class="section-label text-center">👗</div>
+              <img class="example-thumb" src="example-1-b.jpg" alt="Example clothing 1">
+            </div>
+            <div class="col-md-1 operator">=</div>
+            <div class="col-md-4 text-center">
+              <div class="section-label text-center">✨</div>
+              <img class="example-thumb" src="example-1-c.png" alt="Example result 1">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Example Set 2 -->
+      <div class="card subcard mb-4">
+        <div class="card-body">
+          <div class="row align-items-center g-3">
+            <div class="col-md-3 text-center">
+              <div class="section-label text-center">👤</div>
+              <img class="example-thumb" src="example-2-a.jpg" alt="Example user 2">
+            </div>
+            <div class="col-md-1 operator">+</div>
+            <div class="col-md-3 text-center">
+              <div class="section-label text-center">👗</div>
+              <img class="example-thumb" src="example-2-b.jpg" alt="Example clothing 2">
+            </div>
+            <div class="col-md-1 operator">=</div>
+            <div class="col-md-4 text-center">
+              <div class="section-label text-center">✨</div>
+              <img class="example-thumb" src="example-2-c.png" alt="Example result 2">
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Previous results — hidden until there are saved results -->
+    <section id="historySection" class="mt-5 text-start d-none">
       <h3 class="mb-3">Previous results 🧵</h3>
       <div id="historyGrid" class="row gy-4"></div>
-      <div id="noHistory" class="text-muted">No saved results yet.</div>
     </section>
 
     <footer class="text-muted mt-5 text-center"><small>© <span id="year"></span> GenerativeAI.fashion</small></footer>
@@ -325,20 +395,24 @@
     });
 
     // ---------- History UI ----------
+    const historySection = document.getElementById("historySection");
     const historyGrid = document.getElementById("historyGrid");
-    const noHistoryEl = document.getElementById("noHistory");
 
     function escapeHtml(s) {
-      return (s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      return (s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
     function renderHistory(runs) {
       historyGrid.innerHTML = "";
+
       if (!runs.length) {
-        noHistoryEl.classList.remove("d-none");
+        // Hide the entire Previous results panel if there are no runs
+        historySection.classList.add("d-none");
         return;
       }
-      noHistoryEl.classList.add("d-none");
+
+      // Show section when we have runs
+      historySection.classList.remove("d-none");
 
       // newest first
       runs.sort((a,b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
@@ -398,7 +472,7 @@
     }
 
     // Confirm before delete
-    historyGrid.addEventListener("click", async (e) => {
+    historySection.addEventListener("click", async (e) => {
       const btn = e.target.closest('[data-action="remove-run"]');
       if (!btn) return;
 
@@ -427,6 +501,8 @@
         db.close?.();
       } catch (e) {
         console.warn("IndexedDB load failed:", e);
+        // If something goes wrong, keep the section hidden to avoid empty panel.
+        historySection.classList.add("d-none");
       }
     }
 
