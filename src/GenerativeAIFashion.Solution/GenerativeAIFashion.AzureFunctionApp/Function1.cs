@@ -22,6 +22,7 @@ namespace GenerativeAIFashion.AzureFunctionApp
         }
 
         [Function("Function1")]
+        
         public async Task<HttpResponseData> RunAsync([HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")] HttpRequestData req)
         {
             try
@@ -178,6 +179,142 @@ namespace GenerativeAIFashion.AzureFunctionApp
             }
         }
 
+        [Function("Function2")]
+        public async Task<HttpResponseData> RunFunction2Async([HttpTrigger(AuthorizationLevel.Anonymous, "post")] HttpRequestData req)
+        {
+            try
+            {
+                // 1) Parse multipart/form-data
+                if (!req.Headers.TryGetValues("Content-Type", out var contentTypeValues))
+                    return await BadRequest(req, "Missing Content-Type.");
+
+                var contentType = contentTypeValues.FirstOrDefault() ?? "";
+                if (!Microsoft.Net.Http.Headers.MediaTypeHeaderValue.TryParse(contentType, out var mediaType) ||
+                    mediaType.MediaType != "multipart/form-data")
+                    return await BadRequest(req, "Content-Type must be multipart/form-data.");
+
+                var boundary = HeaderUtilities.RemoveQuotes(mediaType.Parameters.First(p => p.Name.Equals("boundary")).Value).Value;
+                if (string.IsNullOrWhiteSpace(boundary))
+                    return await BadRequest(req, "Missing multipart boundary.");
+
+                var reader = new MultipartReader(boundary, req.Body);
+                string? prompt = null;
+                (byte[] bytes, string mime)? sourceImage = null;
+
+                for (MultipartSection? section = await reader.ReadNextSectionAsync();
+                     section != null;
+                     section = await reader.ReadNextSectionAsync())
+                {
+                    if (!Microsoft.Net.Http.Headers.ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var cd) || cd == null || !cd.DispositionType.Equals("form-data"))
+                        continue;
+
+                    var name = HeaderUtilities.RemoveQuotes(cd.Name).Value;
+
+                    if (cd.FileName.HasValue || cd.FileNameStar.HasValue)
+                    {
+                        var ms = new MemoryStream();
+                        await section.Body.CopyToAsync(ms);
+                        var fileBytes = ms.ToArray();
+                        var mime = section.ContentType ?? "application/octet-stream";
+
+                        if (string.Equals(name, "sourceImage", StringComparison.OrdinalIgnoreCase))
+                            sourceImage = (fileBytes, mime);
+                    }
+                    else
+                    {
+                        using var sr = new StreamReader(section.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
+                        var value = await sr.ReadToEndAsync();
+                        if (string.Equals(name, "prompt", StringComparison.OrdinalIgnoreCase))
+                            prompt = value;
+                    }
+                }
+
+                if (sourceImage is null)
+                    return await BadRequest(req, "sourceImage is required.");
+
+                if (string.IsNullOrWhiteSpace(prompt))
+                    return await BadRequest(req, "prompt is required.");
+
+                // 2) Send to Gemini
+                var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY_1");
+
+                var model = Environment.GetEnvironmentVariable("GEMINI_IMAGE_MODEL")
+                       ?? "gemini-3.1-flash-image-preview";
+
+                var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
+
+                var parts = new List<object>
+                {
+                    new { text = prompt.Trim() },
+                    new
+                    {
+                        inline_data = new
+                        {
+                            mime_type = sourceImage.Value.mime,
+                            data = Convert.ToBase64String(sourceImage.Value.bytes)
+                        }
+                    }
+                };
+
+                var requestBody = new
+                {
+                    contents = new[] { new { parts } },
+                    generationConfig = new
+                    {
+                        temperature = 0.4,
+                        responseModalities = new[] { "image", "text" }
+                    }
+                };
+
+                using var client = _httpClientFactory.CreateClient();
+                using var http = new HttpRequestMessage(HttpMethod.Post, endpoint);
+                http.Headers.Add("x-goog-api-key", apiKey);
+                http.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+                var genResp = await client.SendAsync(http);
+                var raw = await genResp.Content.ReadAsStringAsync();
+
+                if (!genResp.IsSuccessStatusCode)
+                {
+                    _logger.LogError("Gemini error {Status}: {Body}", genResp.StatusCode, raw);
+                    return await Error(req, HttpStatusCode.BadGateway, raw);
+                }
+
+                if (!TryExtractInlineImage(raw, out var outMime, out var outB64, out var reason))
+                {
+                    _logger.LogWarning("No inline image in Function2 response. Reason: {Reason}. Raw: {Raw}",
+                        reason ?? "unknown", Truncate(raw, 2000));
+                    var err = new
+                    {
+                        error = "No image returned from Gemini.",
+                        reason,
+                        raw = Truncate(raw, 2000)
+                    };
+                    var notOk = req.CreateResponse(HttpStatusCode.BadGateway);
+                    AddCors(notOk, req);
+                    notOk.Headers.Add("Content-Type", "application/json; charset=utf-8");
+                    await notOk.WriteStringAsync(JsonSerializer.Serialize(err));
+                    return notOk;
+                }
+
+                var bytesOut = Convert.FromBase64String(outB64!);
+                var ok = req.CreateResponse(HttpStatusCode.OK);
+                AddCors(ok, req);
+                ok.Headers.Add("Content-Type", outMime ?? "image/png");
+                await ok.WriteBytesAsync(bytesOut);
+                return ok;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled error in Function2.");
+                var resp = req.CreateResponse(HttpStatusCode.InternalServerError);
+                AddCors(resp, req);
+                resp.Headers.Add("Content-Type", "text/plain; charset=utf-8");
+                await resp.WriteStringAsync("Server error.");
+                return resp;
+            }
+        }
+
         // ---- helpers ----
         private static async Task<HttpResponseData> BadRequest(HttpRequestData req, string message)
         {
@@ -216,7 +353,7 @@ namespace GenerativeAIFashion.AzureFunctionApp
 
             foreach (var cand in candidates.EnumerateArray())
             {
-                // Some responses include finishReason / safetyRatings — grab a hint if present
+                // Some responses include finishReason / safetyRatings ï¿½ grab a hint if present
                 if (cand.TryGetProperty("finishReason", out var fr) && fr.ValueKind == JsonValueKind.String)
                     reason ??= $"finishReason={fr.GetString()}";
 
@@ -249,7 +386,7 @@ namespace GenerativeAIFashion.AzureFunctionApp
         }
 
         private static string Truncate(string s, int max)
-            => s.Length <= max ? s : s.Substring(0, max) + "…";
+            => s.Length <= max ? s : s.Substring(0, max) + "ï¿½";
 
       
 
