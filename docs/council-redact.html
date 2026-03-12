@@ -116,7 +116,7 @@
 <body>
   <div class="container text-center">
 
-    <h1 class="brand-title">Council GenAI Image Tool</h1>
+    <h1 class="brand-title">Council GenAI Image Tool <span class="badge bg-danger" style="font-size:.45em;vertical-align:super;letter-spacing:.5px;">BETA</span></h1>
     <p class="h2 fw-semibold text-body-secondary mb-3">Perform common image editting with GenAI</p>
 
     <!-- Info panel -->
@@ -258,6 +258,107 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight faded or missing road markings and lane lines with a yellow overlay">🛣️ Highlight road markings</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove all vehicles from the road scene">🚗 Remove vehicles</button>
                 <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight damaged or missing street furniture such as signs, barriers, or bollards with a red overlay">🚦 Highlight damaged street furniture</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Planning & Development -->
+        <div class="col-md-6 col-xl-3">
+          <div class="card subcard h-100">
+            <div class="card-body">
+              <div class="section-label mb-2">🏗️ Planning &amp; Development</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Visualise the proposed building or extension as it would look when completed, blending it naturally into the existing scene">🏗️ Visualise proposed building</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight any visible planning violations or unauthorised structures with a red overlay">⚠️ Highlight planning violations</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove all scaffolding from the building in the image to show the underlying structure">🔧 Remove scaffolding</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Create a before and after comparison showing the site cleared and ready for development">📐 Show site before/after</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Housing & Property -->
+        <div class="col-md-6 col-xl-3">
+          <div class="card subcard h-100">
+            <div class="card-body">
+              <div class="section-label mb-2">🏘️ Housing &amp; Property</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight any visible structural defects such as cracks, damp patches, or subsidence with a red overlay">🧱 Highlight structural defects</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove all furniture and personal belongings from the room to show the empty space">🛋️ Remove furniture for listing</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Visualise a home extension or loft conversion as it would appear once built, blending naturally with the existing property">🔨 Visualise extension</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight accessibility barriers such as steps, narrow doorways, or absent grab rails with a yellow overlay">♿ Highlight accessibility barriers</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Parks & Green Spaces -->
+        <div class="col-md-6 col-xl-3">
+          <div class="card subcard h-100">
+            <div class="card-body">
+              <div class="section-label mb-2">🌿 Parks &amp; Green Spaces</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove all litter, vandalism, and dumped items from the park or green space">🗑️ Remove litter &amp; vandalism</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight damaged or broken play equipment with a red overlay">🛝 Highlight damaged equipment</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Visualise a proposed landscaping scheme with new planting, paths, and seating blended into the scene">🌱 Visualise landscaping</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight areas of heavy pitch wear or compacted turf on the sports ground with a yellow overlay">⚽ Show pitch wear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Waste Management -->
+        <div class="col-md-6 col-xl-3">
+          <div class="card subcard h-100">
+            <div class="card-body">
+              <div class="section-label mb-2">♻️ Waste Management</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight contaminated or incorrectly sorted waste bins with a red overlay">🚮 Highlight contaminated bins</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight damaged bin infrastructure such as cracked bin units, missing lids, or broken fixings with a red overlay">🗑️ Highlight damaged infrastructure</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Isolate and highlight the specific problem item or incorrect waste among the others with a red overlay">🔍 Isolate problem item</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Community Safety / ASB -->
+        <div class="col-md-6 col-xl-3">
+          <div class="card subcard h-100">
+            <div class="card-body">
+              <div class="section-label mb-2">🚨 Community Safety / ASB</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Blur all faces and identifying features of individuals in the image for evidence documentation purposes">🙈 Blur identifying features</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight graffiti and criminal damage on surfaces with a red overlay">🎨 Highlight graffiti &amp; damage</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight all fly-posting and unauthorised advertising on walls and surfaces with a yellow overlay">📋 Highlight fly-posting</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Building Control & Fire Safety -->
+        <div class="col-md-6 col-xl-3">
+          <div class="card subcard h-100">
+            <div class="card-body">
+              <div class="section-label mb-2">🔥 Building Control &amp; Fire Safety</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight any blocked or obstructed fire exits and escape routes with a red overlay">🚪 Highlight blocked exits</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Flag locations where fire safety signage such as fire exit signs or extinguisher signs is missing or obscured with a red overlay">🪧 Flag missing fire safety signage</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight unsafe or non-compliant building work with a red overlay">⛔ Highlight unsafe building work</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Communications & Tourism -->
+        <div class="col-md-6 col-xl-3">
+          <div class="card subcard h-100">
+            <div class="card-body">
+              <div class="section-label mb-2">📸 Communications &amp; Tourism</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove all parked cars and vehicles from the street scene to show the space unobstructed">🚗 Remove parked cars</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove all temporary signage, cones, and barriers from the image">🪧 Remove temporary signage</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Enhance the lighting and brightness of the exterior shot to make it look more inviting and appealing">💡 Enhance exterior lighting</button>
               </div>
             </div>
           </div>
