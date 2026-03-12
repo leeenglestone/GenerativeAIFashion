@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Council Image Privacy Tool</title>
+  <title>Council GenAI Image Tool</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <meta name="description" content="Automatically blur faces and licence plates in images for local councils" />
+  <meta name="description" content="AI-powered image editing for local councils — redact, highlight, remove, and enhance council imagery" />
 
   <style>
     :root {
@@ -60,10 +60,6 @@
       backdrop-filter: blur(6px);
     }
 
-    .arrow-col {
-      font-size: 2.5rem; font-weight: 800; color: #64748b;
-      display: flex; align-items: center; justify-content: center;
-    }
 
     .cta { background: var(--brand-grad); border: 0; box-shadow: 0 10px 24px rgba(8,145,178,.25); }
     .cta:hover { filter: brightness(.98); transform: translateY(-1px); }
@@ -104,6 +100,12 @@
     .site-footer a { color: #475569; text-decoration: none; }
     .site-footer a:hover { text-decoration: underline; }
 
+    /* Zoomable images */
+    .zoomable { cursor: zoom-in; transition: opacity .15s ease; }
+    .zoomable:hover { opacity: .85; }
+    #imgModal .modal-dialog { max-width: min(92vw, 1100px); }
+    #imgModal img { max-height: 80vh; width: 100%; object-fit: contain; border-radius: .5rem; }
+
     .badge-op {
       font-size: .75rem;
       padding: .25em .6em;
@@ -114,17 +116,17 @@
 <body>
   <div class="container text-center">
 
-    <h1 class="brand-title">Council Image Privacy Tool</h1>
-    <p class="h2 fw-semibold text-body-secondary mb-3">Automatically redact faces &amp; licence plates using AI</p>
+    <h1 class="brand-title">Council GenAI Image Tool</h1>
+    <p class="h2 fw-semibold text-body-secondary mb-3">Perform common image editting with GenAI</p>
 
     <!-- Info panel -->
     <div class="card subcard mb-4 text-start">
       <div class="card-body py-3">
         <p class="mb-0">
-          Upload an image captured by council CCTV, dashcam, or field survey. Select one or more redaction options
-          and click <strong>Process Image</strong>. The tool uses AI to detect and blur sensitive information
-          before the image is used in reports or shared publicly.
-          All processing is performed server-side and images are not stored beyond your session.
+          Upload any council image — from CCTV, dashcams, housing visits, or field surveys. Describe what you want
+          to change using the prompt box, or choose a quick option from the service categories below.
+          The tool uses generative AI to edit, redact, highlight, or transform the image to suit your needs.
+          Images are processed securely and are not retained after your session.
         </p>
       </div>
     </div>
@@ -133,7 +135,7 @@
       <div class="row align-items-start g-4">
 
         <!-- Upload -->
-        <div class="col-lg-5">
+        <div class="col-lg-4">
           <div class="section-label text-start">
             Upload Image <span class="badge rounded-pill badge-soft">Click or drop</span>
           </div>
@@ -148,55 +150,22 @@
 
           <div id="imagePreviewWrap" class="preview-wrap mt-2 d-none text-center w-100">
             <button type="button" id="imageClear" class="btn btn-sm btn-light border clear-btn" aria-label="Clear image">🗑️</button>
-            <img id="imagePreview" class="preview-img" alt="Source image preview">
+            <img id="imagePreview" class="preview-img zoomable" alt="Source image preview">
           </div>
         </div>
 
-        <!-- Arrow -->
-        <div class="col-lg-1 arrow-col pt-5 d-none d-lg-flex">&#8594;</div>
-
         <!-- Options -->
-        <div class="col-lg-3 text-start">
-          <div class="section-label">Redaction Options</div>
-          <p class="text-muted small mb-3">Select what to blur in the image.</p>
-
-          <label class="option-card d-flex gap-3 align-items-start mb-3 w-100">
-            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" name="blurFaces" id="blurFaces" value="true" checked>
-            <div>
-              <div class="option-icon">👤</div>
-              <div class="fw-semibold">Blur Faces</div>
-              <div class="small text-muted">Detect and blur all human faces in the image</div>
-            </div>
-          </label>
-
-          <label class="option-card d-flex gap-3 align-items-start mb-3 w-100">
-            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" name="blurPlates" id="blurPlates" value="true" checked>
-            <div>
-              <div class="option-icon">🚗</div>
-              <div class="fw-semibold">Blur Licence Plates</div>
-              <div class="small text-muted">Detect and blur vehicle licence / number plates</div>
-            </div>
-          </label>
-
-          <label class="option-card d-flex gap-3 align-items-start mb-3 w-100">
-            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" name="cleanRoom" id="cleanRoom" value="true">
-            <div>
-              <div class="option-icon">🏠</div>
-              <div class="fw-semibold">Clean Room</div>
-              <div class="small text-muted">Remove personal belongings and clutter for housing inspection images</div>
-            </div>
-          </label>
-
-          <!-- Specific prompt -->
-          <div class="mt-3">
-            <label for="prompt" class="section-label d-block mb-1">Specific Instructions <span class="text-muted fw-normal small">(optional)</span></label>
-            <textarea id="prompt" name="prompt" class="form-control" rows="3"
-              placeholder="e.g. blur the person in the background's face"></textarea>
-            <div class="form-text">Describe anything specific to redact beyond the options above.</div>
+        <div class="col-lg-4 text-start">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label for="prompt" class="section-label mb-0">Prompt</label>
+            <button type="button" class="btn btn-sm btn-outline-danger" id="clearPromptBtn">✕ Clear</button>
           </div>
+          <textarea id="prompt" name="prompt" class="form-control" rows="5"
+            placeholder="Describe what to edit in the image, or use the quick options below…"></textarea>
+          <div class="form-text mb-3">Use the service options below to populate, or type your own.</div>
 
           <!-- Submit -->
-          <div class="mt-4 d-grid">
+          <div class="mt-3 d-grid">
             <button id="submitBtn" type="submit" class="btn btn-primary btn-lg cta">
               <span id="btnLabel">Process Image</span>
               <span class="spinner-border spinner-border-sm d-none ms-2" id="btnSpin" role="status"></span>
@@ -208,29 +177,113 @@
         </div>
 
         <!-- Result -->
-        <div class="col-lg-3 text-start">
+        <div class="col-lg-4 text-start">
           <div class="section-label">Result</div>
           <div class="border rounded p-3" style="min-height:300px; display:flex; align-items:center; justify-content:center; background:#fff; border-radius:.75rem;">
-            <img id="resultImg" class="preview-img d-none" alt="Redacted image">
+            <img id="resultImg" class="preview-img zoomable d-none" alt="Editted image">
             <span id="placeholder" class="text-muted text-center px-2">
               <div style="font-size:2rem">✅</div>
-              Redacted image will appear here
+              Editted image will appear here
             </span>
           </div>
           <div id="downloadWrap" class="d-none mt-2 text-center">
-            <a id="downloadLink" class="btn btn-outline-secondary btn-sm" download="council-redacted.png">&#8659; Download redacted image</a>
+            <a id="downloadLink" class="btn btn-outline-secondary btn-sm" download="council-edited.png">&#8659; Download edited image</a>
           </div>
         </div>
 
       </div>
     </form>
 
+    <!-- Quick options by council service -->
+    <section class="mt-4 text-start">
+      <div class="mb-3">
+        <h5 class="mb-0 fw-semibold">Quick options by service</h5>
+      </div>
+      <p class="text-muted small mb-3">Click any option to add it to the prompt. Multiple options can be combined.</p>
+
+      <div class="row g-3">
+
+        <!-- Privacy & Redaction -->
+        <div class="col-md-6 col-xl-3">
+          <div class="card subcard h-100">
+            <div class="card-body">
+              <div class="section-label mb-2">🔒 Privacy &amp; Redaction</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Blur all faces in the image">👤 Blur faces</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Blur all vehicle licence plates">🚗 Blur licence plates</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Blur all street signs and house numbers">🏷️ Blur street signs &amp; numbers</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove all people from the image">🚶 Remove all people</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Social Care -->
+        <div class="col-md-6 col-xl-3">
+          <div class="card subcard h-100">
+            <div class="card-body">
+              <div class="section-label mb-2">🏠 Social Care</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove personal belongings and clutter to make the room look clean and tidy for a housing inspection">🧹 Clean room</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight any visible safety hazards such as trip hazards, blocked exits, or exposed wiring with a red overlay">⚠️ Highlight safety hazards</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight any areas of visible damp, mould, or water damage with a red overlay">💧 Highlight damp &amp; mould</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove the carer or support worker from the image, keeping only the service user visible">👥 Remove carer from image</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Environmental Services -->
+        <div class="col-md-6 col-xl-3">
+          <div class="card subcard h-100">
+            <div class="card-body">
+              <div class="section-label mb-2">🌳 Environmental Services</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove the tree or fallen tree from the image">🌳 Remove tree</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove fly-tipped waste and dumped rubbish from the image">🗑️ Remove fly-tipping</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight overgrown vegetation, hedges, or weeds encroaching on the pavement or road with a yellow overlay">🌿 Highlight overgrown vegetation</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove graffiti from all surfaces in the image">🎨 Remove graffiti</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transport & Highways -->
+        <div class="col-md-6 col-xl-3">
+          <div class="card subcard h-100">
+            <div class="card-body">
+              <div class="section-label mb-2">🚧 Transport &amp; Highways</div>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight any potholes or road surface damage with a red overlay">🕳️ Highlight potholes</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight faded or missing road markings and lane lines with a yellow overlay">🛣️ Highlight road markings</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Remove all vehicles from the road scene">🚗 Remove vehicles</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary quick-btn" data-text="Highlight damaged or missing street furniture such as signs, barriers, or bollards with a red overlay">🚦 Highlight damaged street furniture</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
     <!-- History -->
     <section id="historySection" class="mt-5 text-start d-none">
-      <h3 class="mb-3">Previous results</h3>
+      <h3 class="mb-3">Previous edits</h3>
       <div id="historyGrid" class="row gy-4"></div>
     </section>
 
+  </div>
+
+  <!-- Image zoom modal -->
+  <div class="modal fade" id="imgModal" tabindex="-1" aria-label="Image preview" aria-modal="true" role="dialog">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 bg-transparent shadow-none">
+        <div class="modal-body p-2 text-center position-relative">
+          <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-2" data-bs-dismiss="modal" aria-label="Close" style="z-index:10;filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))"></button>
+          <img id="imgModalSrc" src="" alt="Full size preview">
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Footer -->
@@ -238,8 +291,8 @@
     <div class="container">
       <div class="row align-items-center gy-3">
         <div class="col-12 col-md text-center text-md-start">
-          <div><strong>Council Image Privacy Tool</strong></div>
-          <div class="small">AI-powered redaction for public-sector image compliance.</div>
+          <div><strong>Council GenAI Image Tool</strong></div>
+          <div class="small">AI-powered image editing for local council services.</div>
         </div>
         <div class="col-12 col-md text-center text-md-end small text-muted">
           Images are processed securely and not retained after your session.
@@ -405,18 +458,18 @@
               <div class="row align-items-center g-3">
                 <div class="col-md-5 text-center">
                   <div class="section-label text-center">Original</div>
-                  <img class="thumb" src="${run.source?.dataUrl || ""}" alt="Original image">
+                  <img class="thumb zoomable" src="${run.source?.dataUrl || ""}" alt="Original image">
                 </div>
                 <div class="col-md-2 text-center" style="font-size:2rem">&#8594;</div>
                 <div class="col-md-5 text-center">
-                  <div class="section-label text-center">Redacted</div>
-                  <img class="thumb" src="${run.result?.dataUrl || ""}" alt="Redacted image">
+                  <div class="section-label text-center">Editted</div>
+                  <img class="thumb zoomable" src="${run.result?.dataUrl || ""}" alt="Redacted image">
                   <div class="mt-3">
                     <a class="btn btn-sm btn-outline-secondary"
                        href="${run.result?.dataUrl || '#'}"
-                       download="council-redacted-${run.id ?? 'result'}.png"
+                       download="council-edited-${run.id ?? 'result'}.png"
                        ${run.result?.dataUrl ? "" : "aria-disabled='true' tabindex='-1'"}
-                       title="Download redacted image">
+                       title="Download edited image">
                       &#8659; Download
                     </a>
                   </div>
@@ -489,12 +542,9 @@
         return;
       }
 
-      const blurFaces  = document.getElementById("blurFaces").checked;
-      const blurPlates = document.getElementById("blurPlates").checked;
-      const cleanRoom  = document.getElementById("cleanRoom").checked;
-
-      if (!blurFaces && !blurPlates && !cleanRoom) {
-        errorAlert.textContent = "Please select at least one redaction option.";
+      const builtPrompt = document.getElementById("prompt").value.trim();
+      if (!builtPrompt) {
+        errorAlert.textContent = "Please enter a prompt or select a quick option.";
         errorAlert.classList.remove("d-none");
         return;
       }
@@ -539,15 +589,10 @@
           blobToDataURL(blob)
         ]);
 
-        const ops = [];
-        if (blurFaces)  ops.push("blurFaces");
-        if (blurPlates) ops.push("blurPlates");
-        if (cleanRoom)  ops.push("cleanRoom");
-
         const runItem = {
           createdAt: new Date().toISOString(),
-          ops,
-          prompt: document.getElementById("prompt").value.trim(),
+          ops: [],
+          prompt: builtPrompt,
           source: { mime: sourceFile.type, dataUrl: sourceDataUrl },
           result: { mime: blob.type || "image/png", dataUrl: resultDataUrl }
         };
@@ -566,6 +611,47 @@
       } finally {
         setBusy(false);
       }
+    });
+
+    // ---- Image zoom modal ----
+    const imgModal    = new bootstrap.Modal(document.getElementById("imgModal"));
+    const imgModalSrc = document.getElementById("imgModalSrc");
+
+    function openZoom(src, alt) {
+      imgModalSrc.src = src;
+      imgModalSrc.alt = alt || "Full size preview";
+      imgModal.show();
+    }
+
+    // Static images (preview + result)
+    document.getElementById("imagePreview").addEventListener("click", function() {
+      if (this.src) openZoom(this.src, "Source image");
+    });
+    document.getElementById("resultImg").addEventListener("click", function() {
+      if (this.src) openZoom(this.src, "Processed image");
+    });
+
+    // History thumbnails (delegated — covers dynamically rendered rows)
+    document.getElementById("historyGrid").addEventListener("click", e => {
+      const img = e.target.closest("img.thumb");
+      if (img && img.src) openZoom(img.src, img.alt);
+    });
+
+    // ---- Quick-option buttons ----
+    document.querySelectorAll(".quick-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const promptEl = document.getElementById("prompt");
+        const text = btn.dataset.text;
+        promptEl.value = promptEl.value.trim()
+          ? promptEl.value.trimEnd() + ". " + text
+          : text;
+        promptEl.focus();
+      });
+    });
+
+    document.getElementById("clearPromptBtn").addEventListener("click", () => {
+      document.getElementById("prompt").value = "";
+      document.getElementById("prompt").focus();
     });
 
     // ---- Init ----
