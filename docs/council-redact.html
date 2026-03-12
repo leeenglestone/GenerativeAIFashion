@@ -504,7 +504,7 @@
       setBusy(true);
       try {
         // Replace with your deployed function URL
-        const FUNCTION_URL = "/api/RedactImage";
+        const FUNCTION_URL = "https://generativeaifashionazurefunctionapp2.azurewebsites.net/api/Function1";
         const resp = await fetch(FUNCTION_URL, { method: "POST", body: fd });
         if (!resp.ok) {
           const body = await resp.text();
