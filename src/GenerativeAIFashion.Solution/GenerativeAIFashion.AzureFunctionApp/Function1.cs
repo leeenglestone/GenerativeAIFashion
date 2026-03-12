@@ -92,7 +92,7 @@ namespace GenerativeAIFashion.AzureFunctionApp
                 var apiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY_1");                
 
                 var model = Environment.GetEnvironmentVariable("GEMINI_IMAGE_MODEL")
-                       ?? "gemini-2.5-flash-image-preview";
+                       ?? "gemini-3.1-flash-image-preview";
 
                 var endpoint = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
 

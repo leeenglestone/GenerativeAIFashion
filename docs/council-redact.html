@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Council Image Privacy Tool</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <meta name="description" content="Automatically blur faces and licence plates in images for local councils" />
+
+  <style>
+    :root {
+      --brand-grad: linear-gradient(135deg, #1d4ed8 0%, #0891b2 50%, #059669 100%);
+    }
+    body { padding-top: 2rem; }
+
+    .brand-title {
+      background: var(--brand-grad);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      font-size: clamp(1.7rem, 3.2vw + 0.8rem, 3.2rem);
+      line-height: 1.06;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      text-wrap: balance;
+      margin-bottom: .25rem;
+      font-weight: 800;
+    }
+
+    .subcard {
+      border: 0;
+      background: #f8fafc;
+      box-shadow: 0 8px 24px rgba(2,6,23,.05);
+      border-radius: 1rem;
+    }
+
+    .card-panel {
+      min-height: 300px; display: flex; align-items: center; justify-content: center;
+      border: 2px dashed #cbd5e1; border-radius: 1rem; cursor: pointer; background-color: #f8fafc;
+      transition: transform .15s ease, background-color .2s ease, border-color .2s ease;
+    }
+    .card-panel:hover { transform: translateY(-2px); border-color: #94a3b8; background-color: #f1f5f9; }
+    .card-panel.dragover { background-color: #dbeafe; border-color: #3b82f6; }
+
+    .section-label { font-weight: 700; letter-spacing: .3px; color: #475569; margin-bottom: .25rem; }
+    .badge-soft { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+    .preview-img { max-width: 100%; max-height: 320px; border-radius: .75rem; box-shadow: 0 6px 20px rgba(2,6,23,.08); }
+    .preview-wrap { position: relative; display: inline-block; }
+
+    .thumb {
+      max-height: 260px; width: auto; border-radius: .75rem;
+      box-shadow: 0 6px 20px rgba(2,6,23,.08); object-fit: contain;
+    }
+    @media (max-width: 576px) { .thumb { max-height: 190px; } }
+
+    .clear-btn {
+      position: absolute; top: .5rem; right: .5rem; z-index: 2;
+      backdrop-filter: blur(6px);
+    }
+
+    .arrow-col {
+      font-size: 2.5rem; font-weight: 800; color: #64748b;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .cta { background: var(--brand-grad); border: 0; box-shadow: 0 10px 24px rgba(8,145,178,.25); }
+    .cta:hover { filter: brightness(.98); transform: translateY(-1px); }
+    .cta:active { transform: translateY(0); }
+
+    .muted-small { font-size: .9rem; color: #64748b; }
+
+    .option-card {
+      border: 2px solid #e2e8f0;
+      border-radius: .75rem;
+      padding: 1rem 1.25rem;
+      cursor: pointer;
+      transition: border-color .15s ease, background-color .15s ease;
+      background: #fff;
+    }
+    .option-card:has(input:checked) {
+      border-color: #1d4ed8;
+      background: #eff6ff;
+    }
+    .option-card .option-icon { font-size: 1.8rem; }
+
+    /* Footer */
+    .site-footer {
+      position: relative;
+      background: #f8fafc;
+      border-top: 1px solid #e5e7eb;
+      padding: 2rem 0;
+      margin-top: 4rem;
+      color: #64748b;
+    }
+    .site-footer::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: var(--brand-grad);
+    }
+    .site-footer a { color: #475569; text-decoration: none; }
+    .site-footer a:hover { text-decoration: underline; }
+
+    .badge-op {
+      font-size: .75rem;
+      padding: .25em .6em;
+      border-radius: .4rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container text-center">
+
+    <h1 class="brand-title">Council Image Privacy Tool</h1>
+    <p class="h2 fw-semibold text-body-secondary mb-3">Automatically redact faces &amp; licence plates using AI</p>
+
+    <!-- Info panel -->
+    <div class="card subcard mb-4 text-start">
+      <div class="card-body py-3">
+        <p class="mb-0">
+          Upload an image captured by council CCTV, dashcam, or field survey. Select one or more redaction options
+          and click <strong>Process Image</strong>. The tool uses AI to detect and blur sensitive information
+          before the image is used in reports or shared publicly.
+          All processing is performed server-side and images are not stored beyond your session.
+        </p>
+      </div>
+    </div>
+
+    <form id="redact-form">
+      <div class="row align-items-start g-4">
+
+        <!-- Upload -->
+        <div class="col-lg-5">
+          <div class="section-label text-start">
+            Upload Image <span class="badge rounded-pill badge-soft">Click or drop</span>
+          </div>
+          <div id="imageDrop" class="card-panel" data-bs-toggle="tooltip" data-bs-title="Upload the image you want to redact">
+            <div class="text-center text-muted px-3">
+              <div style="font-size:2.5rem">🖼️</div>
+              <div>Click or drop an image here</div>
+              <div class="small mt-1">JPG, PNG, WebP accepted</div>
+            </div>
+            <input id="sourceImage" name="sourceImage" type="file" accept="image/*" class="visually-hidden">
+          </div>
+
+          <div id="imagePreviewWrap" class="preview-wrap mt-2 d-none text-center w-100">
+            <button type="button" id="imageClear" class="btn btn-sm btn-light border clear-btn" aria-label="Clear image">🗑️</button>
+            <img id="imagePreview" class="preview-img" alt="Source image preview">
+          </div>
+        </div>
+
+        <!-- Arrow -->
+        <div class="col-lg-1 arrow-col pt-5 d-none d-lg-flex">&#8594;</div>
+
+        <!-- Options -->
+        <div class="col-lg-3 text-start">
+          <div class="section-label">Redaction Options</div>
+          <p class="text-muted small mb-3">Select what to blur in the image.</p>
+
+          <label class="option-card d-flex gap-3 align-items-start mb-3 w-100">
+            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" name="blurFaces" id="blurFaces" value="true" checked>
+            <div>
+              <div class="option-icon">👤</div>
+              <div class="fw-semibold">Blur Faces</div>
+              <div class="small text-muted">Detect and blur all human faces in the image</div>
+            </div>
+          </label>
+
+          <label class="option-card d-flex gap-3 align-items-start mb-3 w-100">
+            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" name="blurPlates" id="blurPlates" value="true" checked>
+            <div>
+              <div class="option-icon">🚗</div>
+              <div class="fw-semibold">Blur Licence Plates</div>
+              <div class="small text-muted">Detect and blur vehicle licence / number plates</div>
+            </div>
+          </label>
+
+          <label class="option-card d-flex gap-3 align-items-start mb-3 w-100">
+            <input class="form-check-input flex-shrink-0 mt-1" type="checkbox" name="cleanRoom" id="cleanRoom" value="true">
+            <div>
+              <div class="option-icon">🏠</div>
+              <div class="fw-semibold">Clean Room</div>
+              <div class="small text-muted">Remove personal belongings and clutter for housing inspection images</div>
+            </div>
+          </label>
+
+          <!-- Specific prompt -->
+          <div class="mt-3">
+            <label for="prompt" class="section-label d-block mb-1">Specific Instructions <span class="text-muted fw-normal small">(optional)</span></label>
+            <textarea id="prompt" name="prompt" class="form-control" rows="3"
+              placeholder="e.g. blur the person in the background's face"></textarea>
+            <div class="form-text">Describe anything specific to redact beyond the options above.</div>
+          </div>
+
+          <!-- Submit -->
+          <div class="mt-4 d-grid">
+            <button id="submitBtn" type="submit" class="btn btn-primary btn-lg cta">
+              <span id="btnLabel">Process Image</span>
+              <span class="spinner-border spinner-border-sm d-none ms-2" id="btnSpin" role="status"></span>
+            </button>
+          </div>
+
+          <!-- Error -->
+          <div id="errorAlert" class="alert alert-danger mt-3 d-none" role="alert"></div>
+        </div>
+
+        <!-- Result -->
+        <div class="col-lg-3 text-start">
+          <div class="section-label">Result</div>
+          <div class="border rounded p-3" style="min-height:300px; display:flex; align-items:center; justify-content:center; background:#fff; border-radius:.75rem;">
+            <img id="resultImg" class="preview-img d-none" alt="Redacted image">
+            <span id="placeholder" class="text-muted text-center px-2">
+              <div style="font-size:2rem">✅</div>
+              Redacted image will appear here
+            </span>
+          </div>
+          <div id="downloadWrap" class="d-none mt-2 text-center">
+            <a id="downloadLink" class="btn btn-outline-secondary btn-sm" download="council-redacted.png">&#8659; Download redacted image</a>
+          </div>
+        </div>
+
+      </div>
+    </form>
+
+    <!-- History -->
+    <section id="historySection" class="mt-5 text-start d-none">
+      <h3 class="mb-3">Previous results</h3>
+      <div id="historyGrid" class="row gy-4"></div>
+    </section>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="row align-items-center gy-3">
+        <div class="col-12 col-md text-center text-md-start">
+          <div><strong>Council Image Privacy Tool</strong></div>
+          <div class="small">AI-powered redaction for public-sector image compliance.</div>
+        </div>
+        <div class="col-12 col-md text-center text-md-end small text-muted">
+          Images are processed securely and not retained after your session.
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // ---- Upload panel ----
+    const imageDrop       = document.getElementById("imageDrop");
+    const imageInput      = document.getElementById("sourceImage");
+    const imagePreviewWrap = document.getElementById("imagePreviewWrap");
+    const imagePreview    = document.getElementById("imagePreview");
+    const imageClear      = document.getElementById("imageClear");
+
+    const prevent = e => { e.preventDefault(); e.stopPropagation(); };
+    ["dragenter","dragover","dragleave","drop"].forEach(ev => imageDrop.addEventListener(ev, prevent, false));
+    imageDrop.addEventListener("dragenter", () => imageDrop.classList.add("dragover"));
+    imageDrop.addEventListener("dragover",  () => imageDrop.classList.add("dragover"));
+    imageDrop.addEventListener("dragleave", () => imageDrop.classList.remove("dragover"));
+    imageDrop.addEventListener("drop",      () => imageDrop.classList.remove("dragover"));
+
+    imageDrop.addEventListener("click", () => imageInput.click());
+
+    imageDrop.addEventListener("drop", e => {
+      const file = e.dataTransfer?.files?.[0];
+      if (file) {
+        try { imageInput.files = e.dataTransfer.files; } catch {}
+        showPreview(file);
+      }
+    });
+
+    imageInput.addEventListener("change", e => {
+      const file = e.target.files?.[0];
+      if (file) showPreview(file);
+    });
+
+    imageClear.addEventListener("click", () => {
+      imageInput.value = "";
+      imagePreview.src = "";
+      imagePreviewWrap.classList.add("d-none");
+      imageDrop.classList.remove("d-none");
+    });
+
+    function showPreview(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        imagePreview.src = reader.result;
+        imageDrop.classList.add("d-none");
+        imagePreviewWrap.classList.remove("d-none");
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // ---- IndexedDB ----
+    const DB_NAME = "council-redact";
+    const DB_VERSION = 1;
+    const STORE = "runs";
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(STORE)) {
+            const store = db.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
+            store.createIndex("createdAt", "createdAt", { unique: false });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror   = () => reject(req.error);
+      });
+    }
+
+    function addRun(db, data) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        tx.oncomplete = () => resolve();
+        tx.onerror    = () => reject(tx.error);
+        tx.objectStore(STORE).add(data);
+      });
+    }
+
+    function getAllRuns(db) {
+      return new Promise((resolve, reject) => {
+        const tx  = db.transaction(STORE, "readonly");
+        const req = tx.objectStore(STORE).getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror   = () => reject(req.error);
+      });
+    }
+
+    function deleteRun(db, id) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readwrite");
+        tx.oncomplete = () => resolve();
+        tx.onerror    = () => reject(tx.error);
+        tx.objectStore(STORE).delete(id);
+      });
+    }
+
+    const fileToDataURL = file => new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+
+    const blobToDataURL = blob => new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+
+    // ---- History UI ----
+    const historySection = document.getElementById("historySection");
+    const historyGrid    = document.getElementById("historyGrid");
+
+    function escapeHtml(s) {
+      return (s || "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function opBadges(ops) {
+      return (ops || []).map(op => {
+        const labels = { blurFaces: "👤 Faces blurred", blurPlates: "🚗 Plates blurred", cleanRoom: "🏠 Clean room" };
+        return `<span class="badge badge-soft badge-op me-1">${labels[op] || escapeHtml(op)}</span>`;
+      }).join("");
+    }
+
+    function renderHistory(runs) {
+      historyGrid.innerHTML = "";
+      if (!runs.length) { historySection.classList.add("d-none"); return; }
+      historySection.classList.remove("d-none");
+
+      runs.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+
+      for (const run of runs) {
+        const hasId     = typeof run.id !== "undefined";
+        const idAttr    = hasId ? `data-id="${run.id}"` : "";
+        const timestamp = new Date(run.createdAt).toLocaleString();
+
+        const row = document.createElement("div");
+        row.className = "col-12";
+        row.innerHTML = `
+          <div class="card subcard">
+            <div class="card-body">
+              <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                <div class="muted-small">
+                  <span>🗓️ ${timestamp}</span>
+                  <span class="ms-2">${opBadges(run.ops)}</span>
+                  ${run.prompt ? `<span class="ms-2">• <em>"${escapeHtml(run.prompt.length > 120 ? run.prompt.slice(0,120) + '…' : run.prompt)}"</em></span>` : ""}
+                </div>
+                ${hasId ? `
+                  <button type="button" class="btn btn-sm btn-outline-danger" data-action="remove-run" ${idAttr} title="Remove from this device">
+                    🗑️ Remove
+                  </button>` : ""}
+              </div>
+
+              <div class="row align-items-center g-3">
+                <div class="col-md-5 text-center">
+                  <div class="section-label text-center">Original</div>
+                  <img class="thumb" src="${run.source?.dataUrl || ""}" alt="Original image">
+                </div>
+                <div class="col-md-2 text-center" style="font-size:2rem">&#8594;</div>
+                <div class="col-md-5 text-center">
+                  <div class="section-label text-center">Redacted</div>
+                  <img class="thumb" src="${run.result?.dataUrl || ""}" alt="Redacted image">
+                  <div class="mt-3">
+                    <a class="btn btn-sm btn-outline-secondary"
+                       href="${run.result?.dataUrl || '#'}"
+                       download="council-redacted-${run.id ?? 'result'}.png"
+                       ${run.result?.dataUrl ? "" : "aria-disabled='true' tabindex='-1'"}
+                       title="Download redacted image">
+                      &#8659; Download
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        historyGrid.appendChild(row);
+      }
+    }
+
+    historySection.addEventListener("click", async e => {
+      const btn = e.target.closest('[data-action="remove-run"]');
+      if (!btn) return;
+      const id = Number(btn.getAttribute("data-id"));
+      if (!Number.isFinite(id)) return;
+      if (!window.confirm("Remove this saved result from this device?")) return;
+      try {
+        const db   = await openDB();
+        await deleteRun(db, id);
+        localStorage.setItem("council_redact_ping", String(Date.now()));
+        const runs = await getAllRuns(db);
+        renderHistory(runs);
+        db.close?.();
+      } catch (err) {
+        console.warn("Failed to delete run:", err);
+      }
+    });
+
+    async function loadHistory() {
+      try {
+        const db   = await openDB();
+        const runs = await getAllRuns(db);
+        renderHistory(runs);
+        db.close?.();
+      } catch (e) {
+        console.warn("IndexedDB load failed:", e);
+      }
+    }
+
+    // ---- Submit ----
+    const form        = document.getElementById("redact-form");
+    const submitBtn   = document.getElementById("submitBtn");
+    const btnLabel    = document.getElementById("btnLabel");
+    const btnSpin     = document.getElementById("btnSpin");
+    const resultImg   = document.getElementById("resultImg");
+    const placeholder = document.getElementById("placeholder");
+    const downloadWrap = document.getElementById("downloadWrap");
+    const downloadLink = document.getElementById("downloadLink");
+    const errorAlert  = document.getElementById("errorAlert");
+
+    function setBusy(busy) {
+      submitBtn.disabled = busy;
+      btnSpin.classList.toggle("d-none", !busy);
+      btnLabel.textContent = busy ? "Processing…" : "Process Image";
+    }
+
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      errorAlert.classList.add("d-none");
+      downloadWrap.classList.add("d-none");
+      resultImg.classList.add("d-none");
+      placeholder.classList.remove("d-none");
+
+      const sourceFile = imageInput.files?.[0];
+      if (!sourceFile) {
+        errorAlert.textContent = "Please upload an image first.";
+        errorAlert.classList.remove("d-none");
+        return;
+      }
+
+      const blurFaces  = document.getElementById("blurFaces").checked;
+      const blurPlates = document.getElementById("blurPlates").checked;
+      const cleanRoom  = document.getElementById("cleanRoom").checked;
+
+      if (!blurFaces && !blurPlates && !cleanRoom) {
+        errorAlert.textContent = "Please select at least one redaction option.";
+        errorAlert.classList.remove("d-none");
+        return;
+      }
+
+      const fd = new FormData(form);
+
+      setBusy(true);
+      try {
+        // Replace with your deployed function URL
+        const FUNCTION_URL = "/api/RedactImage";
+        const resp = await fetch(FUNCTION_URL, { method: "POST", body: fd });
+        if (!resp.ok) {
+          const body = await resp.text();
+          const statusMessages = {
+            400: "Bad request — the server could not understand the uploaded image or parameters.",
+            401: "Unauthorised — authentication is required to use this service.",
+            403: "Forbidden — you do not have permission to access this service.",
+            404: "Not found — the processing endpoint could not be located. Check the function URL.",
+            405: "Method not allowed — the endpoint does not accept POST requests. The function URL may be incorrect or the backend may not be deployed.",
+            413: "File too large — please upload a smaller image.",
+            429: "Too many requests — the service is rate-limited. Please wait a moment and try again.",
+            500: "Server error — something went wrong on the server while processing the image.",
+            502: "Bad gateway — the server returned an invalid response.",
+            503: "Service unavailable — the processing service is temporarily offline.",
+          };
+          const detail = statusMessages[resp.status] || `Unexpected error (HTTP ${resp.status}).`;
+          throw new Error(`${detail}${body ? `\n\nServer response: ${body}` : ""}`);
+        }
+
+        const blob      = await resp.blob();
+        const objectUrl = URL.createObjectURL(blob);
+
+        resultImg.src = objectUrl;
+        resultImg.classList.remove("d-none");
+        placeholder.classList.add("d-none");
+        downloadLink.href = objectUrl;
+        downloadWrap.classList.remove("d-none");
+
+        // Save to IndexedDB
+        const [sourceDataUrl, resultDataUrl] = await Promise.all([
+          fileToDataURL(sourceFile),
+          blobToDataURL(blob)
+        ]);
+
+        const ops = [];
+        if (blurFaces)  ops.push("blurFaces");
+        if (blurPlates) ops.push("blurPlates");
+        if (cleanRoom)  ops.push("cleanRoom");
+
+        const runItem = {
+          createdAt: new Date().toISOString(),
+          ops,
+          prompt: document.getElementById("prompt").value.trim(),
+          source: { mime: sourceFile.type, dataUrl: sourceDataUrl },
+          result: { mime: blob.type || "image/png", dataUrl: resultDataUrl }
+        };
+
+        const db = await openDB();
+        await addRun(db, runItem);
+        localStorage.setItem("council_redact_ping", String(Date.now()));
+        const runs = await getAllRuns(db);
+        renderHistory(runs);
+        db.close?.();
+
+      } catch (err) {
+        errorAlert.style.whiteSpace = "pre-wrap";
+        errorAlert.textContent = err.message || "An error occurred while processing the image.";
+        errorAlert.classList.remove("d-none");
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    // ---- Init ----
+    loadHistory();
+    window.addEventListener("pageshow",  () => loadHistory());
+    window.addEventListener("storage",   e => { if (e.key === "council_redact_ping") loadHistory(); });
+
+    (function initTooltips() {
+      if (!window.bootstrap?.Tooltip) return;
+      [...document.querySelectorAll('[data-bs-toggle="tooltip"]')]
+        .forEach(el => new bootstrap.Tooltip(el));
+    })();
+  </script>
+</body>
+</html>
